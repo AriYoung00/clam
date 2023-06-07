@@ -1,0 +1,150 @@
+# Tokens:
+
+# keywords
+BOOL      := "bool"
+INT       := "int"
+FLOAT     := "float"
+STRING    := "string"
+FN        := "fn"
+IF        := "if"
+ELSE      := "else"
+FOR       := "for"
+WHILE     := "while"
+BREAK     := "break"
+CONTINUE  := "continue"
+IN        := "in"
+LET       := "let"
+TRUE      := "true"
+FALSE     := "false"
+
+# literals
+STR_LIT   := "([^"]|\\")*"
+           | '([^']|\\')*'
+
+INT_LIT   := [0-9]+
+FLOAT_LIT := [0-9]+\.[0-9]*
+CMD_LIT   := `([^`\n] | \\`)*`
+           | ```^(```)*```
+
+# identifier
+IDENTIFIER := [a-zA-Z_][a-zA-Z0-9_-]*
+
+# binary operators
+ADD := "+"
+SUB := "-"
+MUL := "*"
+DIV := "/"
+LESS := "<"
+LESS_EQUAL := "<="
+GREATER := ">"
+GREATER_EQUAL := ">="
+EQUAL := "=="
+NOT_EQUAL := "!="
+AND := "&&"
+OR := "||"
+
+# unary operators
+NEG := "-"
+NOT := "!"
+REF := "&"
+
+# symbols
+LPAREN := "("
+RPAREN := ")"
+LBRACE := "{"
+RBRACE := "}"
+LBRAK := "["
+RBRAK := "]"
+SEMI := ";"
+EQ := "="
+COMMA := ","
+ARROW := "->"
+DOT := "."
+QMARK := "?"
+
+# MVP
+Statement := FnDef
+ #  later       | StructDef
+           | VarDecl, ";"
+           | AssignmentDecl, ";"
+           | Assignment, ";"
+           | Expr, ";"
+           | Expr
+           | Break
+           | Conditional
+           | WhileLoop
+           | ForLoop
+           | Comment
+           | Block
+
+# MVP
+Block := "{", Statement*, "}"
+Comment := "//", [^\n]*
+
+# MVP
+Primitive := BOOL | INT | FLOAT | STRING
+Type := Primitive
+     # later | Identifier
+
+VarDecl := "let", Identifier
+         | "let", Identifier, ":", Type
+AssignmentDecl := VarDecl, "=", Expr
+                | VerDecl,
+Assignment := Identifier, "=", Expr
+            | Identifier, "=", Conditional
+
+# MVP
+FormalParam := Identifier, ":", Type
+CommaFormalParam := ",", FormalParam
+FormalParam := FormalParam, CommaFormalParam*
+ReturnType := "->", Type
+FnDef := "fn", Identifier, "(", FormalParam?, ")", ReturnType?, Block
+
+# MVP
+BoolLiteral := TRUE | FALSE;
+Literal := BoolLiteral
+         | INT_LIT
+         | FLOAT_LIT
+         | STR_LIT
+         | CMD_LIT
+
+
+# MVP
+BinaryOperator := ADD | SUB | MUL | DIV
+                | LESS | LESS_EQUAL | GREATER | GREATER_EQUAL
+                | EQUAL | NOT_EQUAL | AND | OR
+
+BinaryOperation := Expr, BinaryOperator, Expr
+
+IfClause := IF, Expr, Block
+ElseIfClause := ELSE, IF, Expr, Bck
+ElseClause := ELSE, Block
+Conditional := IfClause, ElseIfClause*, ElseClause?
+
+# MVP
+WhileLoop := WHILE, Expr, Block
+ForLoop := FOR, Identifier, IN, Expr, Block
+
+# MVP
+Arg := Identifier
+CommaArg := ",", Arg
+ArgList := Arg, CommaArg*
+FnCall := Identifier, "(", ArgList?, ")"
+
+Break := "break"
+
+Expr := Literal
+      | "(", Expr, ")"
+      | BinaryOperation
+      | Identifier
+      | FnCall
+
+# later
+FnDecl := "fn", Identifier, "(", FormalParam?, ")", ReturnType?, ";"
+MemberDecl := Identifier, ":", Identifier, ";"
+StructDecl := "struct", Identifier, "{", MemberDecl*, FnDecl* "}"
+StructImpl := "impl", Identifier, "{", FnDef*, "}"
+
+
+
+
