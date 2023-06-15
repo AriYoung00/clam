@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Binary;
-use std::hash::Hash;
 
 pub struct Identifier(String);
 
