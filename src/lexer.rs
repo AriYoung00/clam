@@ -4,10 +4,6 @@ use chumsky::Parser;
 #[derive(Clone, Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum Keyword {
-    Bool,
-    Int,
-    Float,
-    String,
     Fn,
     If,
     Else,
@@ -17,13 +13,12 @@ pub enum Keyword {
     Continue,
     In,
     Let,
-    True,
-    False
 }
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum Literal {
+    Bool(bool),
     Str(String),
     Int(i64),
     Float(f64),
@@ -66,6 +61,7 @@ pub enum Symbol {
     RBracket,
     LAngle,
     RAngle,
+    Colon,
     SemiColon,
     Equal,
     Comma,
@@ -74,6 +70,7 @@ pub enum Symbol {
     Star,
     Slash,
     Plus,
+    Minus,
     Hash,
     QuestionMark,
     LessThanEqual,
@@ -85,6 +82,15 @@ pub enum Symbol {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum Primitive {
+    Bool,
+    Int,
+    Float,
+    String,
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum Token {
     Keyword(Keyword),
@@ -93,16 +99,20 @@ pub enum Token {
     BinOp(BinaryOperator),
     UnOp(UnaryOperator),
     Symbol(Symbol),
+    Primitive(Primitive)
 }
 
-fn lexer() -> impl Parser<char, Token, Error = Simple<char>> {
+pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
     let tok = |c| just(c).padded();
 
-    let keyword = text::keyword::<_, &str, _>("bool").to(Keyword::Bool)
-        .or(text::keyword("int")     .to(Keyword::Int))
-        .or(text::keyword("float")   .to(Keyword::Float))
-        .or(text::keyword("string")  .to(Keyword::String))
-        .or(text::keyword("fn")      .to(Keyword::Fn))
+    let primitive = text::keyword("bool").to(Primitive::Bool)
+        .or(text::keyword("int")     .to(Primitive::Int))
+        .or(text::keyword("float")   .to(Primitive::Float))
+        .or(text::keyword("string")  .to(Primitive::String))
+        .padded()
+        .map(Token::Primitive);
+
+    let keyword = text::keyword("fn").to(Keyword::Fn)
         .or(text::keyword("if")      .to(Keyword::If))
         .or(text::keyword("else")    .to(Keyword::Else))
         .or(text::keyword("for")     .to(Keyword::For))
@@ -111,8 +121,6 @@ fn lexer() -> impl Parser<char, Token, Error = Simple<char>> {
         .or(text::keyword("continue").to(Keyword::Continue))
         .or(text::keyword("in")      .to(Keyword::In))
         .or(text::keyword("let")     .to(Keyword::Let))
-        .or(text::keyword("true")    .to(Keyword::True))
-        .or(text::keyword("false")   .to(Keyword::False))
         .padded()
         .map(Token::Keyword);
 
@@ -142,6 +150,9 @@ fn lexer() -> impl Parser<char, Token, Error = Simple<char>> {
         .map(|(whole, part)| Literal::Float(format!("{whole}.{part}").parse().unwrap()))
         .map(Token::Literal);
 
+    let bool_lit = text::keyword("true").to(true).map(Literal::Bool).map(Token::Literal)
+        .or(text::keyword("false").to(false).map(Literal::Bool).map(Token::Literal));
+
     let cmd_lit_interior = just("```")
         .not()
         .repeated();
@@ -159,41 +170,61 @@ fn lexer() -> impl Parser<char, Token, Error = Simple<char>> {
         .padded()
         .map(|i| Token::Identifier(i));
 
-    let symbol = just("+").to(Symbol::Plus).padded()
-        .or(just("-").to(Symbol::LParen))
+
+    let braces = tok(")").to(Symbol::RParen)
+        .or(tok("{").to(Symbol::LBrace))
+        .or(tok("}").to(Symbol::RBrace))
+        .or(tok("(").to(Symbol::LParen))
+        .or(tok(")").to(Symbol::RParen))
+        .or(tok("[").to(Symbol::LBracket))
+        .or(tok("]").to(Symbol::RBracket))
+        .or(tok("<").to(Symbol::LAngle))
+        .or(tok(">").to(Symbol::RAngle));
+
+    let math = tok("+").to(Symbol::Plus)
+        .or(tok("=").to(Symbol::Equal))
         .or(tok("*").to(Symbol::Star))
-        .or(tok("/").to(Symbol::Slash))
-        .or(tok("<").to(Symbol::RAngle))
+        .or(tok("/").to(Symbol::Slash));
+
+    let binop = tok("->").to(Symbol::Arrow)
         .or(tok("<=").to(Symbol::LessThanEqual))
-        .or(tok(">").to(Symbol::RAngle))
         .or(tok(">=").to(Symbol::GreaterThanEqual))
         .or(tok("==").to(Symbol::EqualEqual))
         .or(tok("!=").to(Symbol::NotEqual))
         .or(tok("&&").to(Symbol::And))
-        .or(tok("||").to(Symbol::Or))
-        .padded()
+        .or(tok("||").to(Symbol::Or));
+
+    let random = tok(";").to(Symbol::SemiColon)
+        .or(tok(":").to(Symbol::Colon))
+        .or(tok(",").to(Symbol::Comma))
+        .or(tok(".").to(Symbol::Dot))
+        .or(just("-").to(Symbol::Minus))
+        .or(tok("#").to(Symbol::Hash))
+        .or(tok("?").to(Symbol::QuestionMark));
+
+    let symbol = binop
+        .or(braces)
+        .or(math)
+        .or(random)
         .map(Token::Symbol);
 
-    let token = keyword
-        .or(str_lit)
-        .or(int_lit)
+    let literal = str_lit
+        .or(cmd_lit)
+        .or(bool_lit)
         .or(float_lit)
+        .or(int_lit);
+
+    let token = keyword
+        .or(primitive)
+        .or(literal)
         .or(cmd_lit)
         .or(ident)
         .or(symbol);
 
     token
-        //.repeated()
+        .repeated()
         .then_ignore(end())
 }
 
-#[cfg(test)]
-mod test {
-    use chumsky::prelude::*;
-    use super::*;
 
-    #[test]
-    fn test_single_keyword() {
-        assert_eq!(lexer().parse("bool").unwrap(), Token::Keyword(Keyword::Bool));
-    }
-}
+

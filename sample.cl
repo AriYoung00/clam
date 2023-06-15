@@ -33,6 +33,10 @@ echo "Looped $count times"
 ```;
 assert_eq(some_bash_script, ["1 is odd", "2 is even", "3 is odd", "4 is even", "5 is odd", "Looped 5 times"]);
 
+fn test(i: int) -> int {
+  i + 1
+}
+
 if true {
   // do stuff
 }
