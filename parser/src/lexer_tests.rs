@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test {
     use chumsky::prelude::*;
-    use crate::{lexer::*, ast::Identifier};
+    use crate::lexer::*;
+    use clam_common::ast::Identifier;
 
     fn lex(s: &str) -> Vec<Token> {
         lexer().parse(s).unwrap()

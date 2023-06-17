@@ -39,7 +39,20 @@ dependencies = [
 name = "clam-lang"
 version = "0.1.0"
 dependencies = [
+ "clam_common",
+ "clam_parser",
+]
+
+[[package]]
+name = "clam_common"
+version = "0.1.0"
+
+[[package]]
+name = "clam_parser"
+version = "0.1.0"
+dependencies = [
  "chumsky",
+ "clam_common",
 ]
 
 [[package]]

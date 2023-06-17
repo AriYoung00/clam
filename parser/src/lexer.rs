@@ -1,3 +1,4 @@
+extern crate chumsky;
 use chumsky::prelude::*;
 use chumsky::Parser;
 
