@@ -165,6 +165,12 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .map(Literal::Command)
         .map(Token::Literal);
 
+    let literal = str_lit
+        .or(cmd_lit)
+        .or(bool_lit)
+        .or(float_lit)
+        .or(int_lit);
+
     // For now just let chumsky do identifiers
     let ident = text::ident()
         .padded()
@@ -208,12 +214,6 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .or(random)
         .map(Token::Symbol);
 
-    let literal = str_lit
-        .or(cmd_lit)
-        .or(bool_lit)
-        .or(float_lit)
-        .or(int_lit);
-
     let token = keyword
         .or(primitive)
         .or(literal)
@@ -225,6 +225,3 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .repeated()
         .then_ignore(end())
 }
-
-
-
