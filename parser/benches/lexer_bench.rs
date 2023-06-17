@@ -20,6 +20,7 @@ fn lex_single_keyword(bencher: &mut Bencher) {
         lex("continue");
         lex("in");
         lex("let");
+        lex("var");
     });
 }
 

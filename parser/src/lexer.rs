@@ -14,6 +14,7 @@ pub enum Keyword {
     Continue,
     In,
     Let,
+    Var,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -213,6 +214,7 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .or(text::keyword("continue").to(Keyword::Continue))
         .or(text::keyword("in")      .to(Keyword::In))
         .or(text::keyword("let")     .to(Keyword::Let))
+        .or(text::keyword("var")     .to(Keyword::Var))
         .padded()
         .map(Token::Keyword);
 
