@@ -6,3 +6,10 @@ edition = "2021"
 [dependencies]
 chumsky = "0.9.2"
 clam_common  = { path = "../common" }
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "lexer_bench"
+harness = false
