@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+
 #[cfg(test)]
 mod test {
     use chumsky::prelude::*;
@@ -25,10 +27,35 @@ mod test {
         
         let lex = |s| lexer().parse(s).unwrap();
 
+        // bool literal
         assert_eq!(lex("true"), vec![Literal(Bool(true))]);
         assert_eq!(lex("false"), vec![Literal(Bool(false))]);
+
+        // int literal
         assert_eq!(lex("11300"), vec![Literal(Int(11300))]);
+        assert_eq!(lex("113 10"), vec![Literal(Int(113)), Literal(Int(10))]);
+
+        // float literal
         assert_eq!(lex("11300.15"), vec![Literal(Float(11300.15))]);
+
+        // string literal
+        assert_eq!(lex(r#""hello there""#), vec![Literal(Str("hello there".into()))]);
+        assert_eq!(lex(r#""hello"   "there""#), vec![Literal(Str("hello".into())), Literal(Str("there".into()))]);
+        assert_eq!(lex("\"hello\"\n\n\"there\""), vec![Literal(Str("hello".into())), Literal(Str("there".into()))]);
+        assert_eq!(lex("\"hello\n\nthere\""), vec![Literal(Str("hello\n\nthere".into()))]);
+
+        // command literal
+        assert_eq!(lex(r#"```ls```"#), vec![Literal(Command("ls".into()))]);
+        assert_eq!(lex(r#"```
+                ls | grep "hello"
+                mkdir test
+                cd test
+                touch thing.txt```"#),
+                vec![Literal(Command(r#"
+                ls | grep "hello"
+                mkdir test
+                cd test
+                touch thing.txt"#.into()))]);
     }
 
     #[test]
@@ -100,6 +127,31 @@ mod test {
         assert_eq!(lex("helloThere()"), vec![Identifier("helloThere".into()), Symbol(LParen), Symbol(RParen)]);
     }
 
+    #[test]
+    fn test_var_decl() {
+        use self::Token::*;
+        use self::Symbol::*;
+        use self::Keyword::*;
+        use self::Primitive::*;
+
+        let var_decl = r#"
+let thing: int = 42;
+            "#;
+        assert_eq!(lex(var_decl), vec![Keyword(Let), Identifier("thing".into()), Symbol(Colon), Primitive(Int),
+                                       Symbol(Equal), Literal(self::Literal::Int(42)), Symbol(SemiColon)]);
+
+        let var_decl = r#"
+let thing = "hello there world";
+            "#;
+        assert_eq!(lex(var_decl), vec![Keyword(Let), Identifier("thing".into()), Symbol(Equal),
+                                       Literal(self::Literal::Str("hello there world".into())), Symbol(SemiColon)]);
+
+        let var_decl = r#"
+let thing1 = thing2;
+            "#;
+        assert_eq!(lex(var_decl), vec![Keyword(Let), Identifier("thing1".into()), Symbol(Equal),
+                                      Identifier("thing2".into()), Symbol(SemiColon)]);
+    }
 
     #[test]
     fn test_func_decl() {
