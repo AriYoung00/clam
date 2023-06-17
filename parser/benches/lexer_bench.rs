@@ -50,6 +50,9 @@ fn lex_single_symbol(bencher: &mut Bencher) {
         lex("!=");
         lex("&&");
         lex("||");
+        lex("&");
+        lex("-");
+        lex("!");
     });
 }
 
@@ -63,11 +66,16 @@ fn test(i: int) -> int {
     bencher.iter(|| lex(FUNC_DECL));
 }
 
+fn lex_string_literal(bencher: &mut Bencher) {
+    bencher.iter(|| lex(r#""hello there""#));
+}
+
 
 pub fn lexer_benchmark(c: &mut Criterion) {
     c.bench_function("lex single keyword", lex_single_keyword);
     c.bench_function("lex simple fn", lex_simple_fn);
     c.bench_function("lex single symbol", lex_single_symbol);
+    c.bench_function("lex string literal", lex_string_literal);
 }
 
 criterion_group!(benches, lexer_benchmark);

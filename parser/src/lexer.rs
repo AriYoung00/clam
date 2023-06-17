@@ -74,6 +74,8 @@ pub enum Symbol {
     Plus,
     Minus,
     Hash,
+    Ampersand,
+    ExclamationMark,
     QuestionMark,
     LessThanEqual,
     GreaterThanEqual,
@@ -130,15 +132,19 @@ fn symbol() -> impl Parser<char, Token, Error = Simple<char>> {
         .or(sym("&&").to(Symbol::And))
         .or(sym("||").to(Symbol::Or));
 
+    let unop = sym("!").to(Symbol::ExclamationMark)
+        .or(sym("-").to(Symbol::Minus))
+        .or(sym("&").to(Symbol::Ampersand));
+
     let random = sym(";").to(Symbol::SemiColon)
         .or(sym(":").to(Symbol::Colon))
         .or(sym(",").to(Symbol::Comma))
         .or(sym(".").to(Symbol::Dot))
-        .or(just("-").to(Symbol::Minus))
         .or(sym("#").to(Symbol::Hash))
         .or(sym("?").to(Symbol::QuestionMark));
 
     let symbol = binop
+        .or(unop)
         .or(braces)
         .or(math)
         .or(random)

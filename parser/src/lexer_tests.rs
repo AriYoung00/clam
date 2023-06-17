@@ -115,6 +115,9 @@ mod test {
         assert_eq!(lex("!="), vec![Symbol(NotEqual)]);
         assert_eq!(lex("&&"), vec![Symbol(And)]);
         assert_eq!(lex("||"), vec![Symbol(Or)]);
+        assert_eq!(lex("&"),  vec![Symbol(Ampersand)]);
+        assert_eq!(lex("-"),  vec![Symbol(Minus)]);
+        assert_eq!(lex("!"),  vec![Symbol(ExclamationMark)]);
     }
 
     #[test]
