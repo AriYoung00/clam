@@ -2,7 +2,7 @@
 mod test {
     use chumsky::prelude::*;
     use crate::lexer::*;
-    use clam_common::ast::Identifier;
+
 
     fn lex(s: &str) -> Vec<Token> {
         lexer().parse(s).unwrap()
@@ -60,6 +60,10 @@ mod test {
         use self::Symbol::*;
 
         assert_eq!(lex("("), vec![Symbol(LParen)]);
+        assert_eq!(lex("            (         "), vec![Symbol(LParen)]);
+        assert_eq!(lex(r#"            (         
+                
+"#), vec![Symbol(LParen)]);
         assert_eq!(lex(")"), vec![Symbol(RParen)]);
         assert_eq!(lex("{"), vec![Symbol(LBrace)]);
         assert_eq!(lex("}"), vec![Symbol(RBrace)]);

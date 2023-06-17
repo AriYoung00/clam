@@ -103,29 +103,50 @@ pub enum Token {
     Primitive(Primitive)
 }
 
-pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
-    let tok = |c| just(c).padded();
+fn symbol() -> impl Parser<char, Token, Error = Simple<char>> {
+    let sym = |c| just(c).padded();
 
-    let primitive = text::keyword("bool").to(Primitive::Bool)
-        .or(text::keyword("int")     .to(Primitive::Int))
-        .or(text::keyword("float")   .to(Primitive::Float))
-        .or(text::keyword("string")  .to(Primitive::String))
-        .padded()
-        .map(Token::Primitive);
+    let braces = sym(")").to(Symbol::RParen)
+        .or(sym("{").to(Symbol::LBrace))
+        .or(sym("}").to(Symbol::RBrace))
+        .or(sym("(").to(Symbol::LParen))
+        .or(sym(")").to(Symbol::RParen))
+        .or(sym("[").to(Symbol::LBracket))
+        .or(sym("]").to(Symbol::RBracket))
+        .or(sym("<").to(Symbol::LAngle))
+        .or(sym(">").to(Symbol::RAngle));
 
-    let keyword = text::keyword("fn").to(Keyword::Fn)
-        .or(text::keyword("if")      .to(Keyword::If))
-        .or(text::keyword("else")    .to(Keyword::Else))
-        .or(text::keyword("for")     .to(Keyword::For))
-        .or(text::keyword("while")   .to(Keyword::While))
-        .or(text::keyword("break")   .to(Keyword::Break))
-        .or(text::keyword("continue").to(Keyword::Continue))
-        .or(text::keyword("in")      .to(Keyword::In))
-        .or(text::keyword("let")     .to(Keyword::Let))
-        .padded()
-        .map(Token::Keyword);
+    let math = sym("+").to(Symbol::Plus)
+        .or(sym("=").to(Symbol::Equal))
+        .or(sym("*").to(Symbol::Star))
+        .or(sym("/").to(Symbol::Slash));
 
+    let binop = sym("->").to(Symbol::Arrow)
+        .or(sym("<=").to(Symbol::LessThanEqual))
+        .or(sym(">=").to(Symbol::GreaterThanEqual))
+        .or(sym("==").to(Symbol::EqualEqual))
+        .or(sym("!=").to(Symbol::NotEqual))
+        .or(sym("&&").to(Symbol::And))
+        .or(sym("||").to(Symbol::Or));
 
+    let random = sym(";").to(Symbol::SemiColon)
+        .or(sym(":").to(Symbol::Colon))
+        .or(sym(",").to(Symbol::Comma))
+        .or(sym(".").to(Symbol::Dot))
+        .or(just("-").to(Symbol::Minus))
+        .or(sym("#").to(Symbol::Hash))
+        .or(sym("?").to(Symbol::QuestionMark));
+
+    let symbol = binop
+        .or(braces)
+        .or(math)
+        .or(random)
+        .map(Token::Symbol);
+
+    symbol
+}
+
+fn literal() -> impl Parser<char, Token, Error = Simple<char>> {
     let _str_interior = just::<_, &str, _>("\"")
         .not()
         .repeated();
@@ -172,55 +193,39 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .or(float_lit)
         .or(int_lit);
 
+    literal
+}
+
+pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
+    let primitive = text::keyword("bool").to(Primitive::Bool)
+        .or(text::keyword("int")     .to(Primitive::Int))
+        .or(text::keyword("float")   .to(Primitive::Float))
+        .or(text::keyword("string")  .to(Primitive::String))
+        .padded()
+        .map(Token::Primitive);
+
+    let keyword = text::keyword("fn").to(Keyword::Fn)
+        .or(text::keyword("if")      .to(Keyword::If))
+        .or(text::keyword("else")    .to(Keyword::Else))
+        .or(text::keyword("for")     .to(Keyword::For))
+        .or(text::keyword("while")   .to(Keyword::While))
+        .or(text::keyword("break")   .to(Keyword::Break))
+        .or(text::keyword("continue").to(Keyword::Continue))
+        .or(text::keyword("in")      .to(Keyword::In))
+        .or(text::keyword("let")     .to(Keyword::Let))
+        .padded()
+        .map(Token::Keyword);
+
     // For now just let chumsky do identifiers
     let ident = text::ident()
         .padded()
         .map(|i| Token::Identifier(i));
 
-
-    let braces = tok(")").to(Symbol::RParen)
-        .or(tok("{").to(Symbol::LBrace))
-        .or(tok("}").to(Symbol::RBrace))
-        .or(tok("(").to(Symbol::LParen))
-        .or(tok(")").to(Symbol::RParen))
-        .or(tok("[").to(Symbol::LBracket))
-        .or(tok("]").to(Symbol::RBracket))
-        .or(tok("<").to(Symbol::LAngle))
-        .or(tok(">").to(Symbol::RAngle));
-
-    let math = tok("+").to(Symbol::Plus)
-        .or(tok("=").to(Symbol::Equal))
-        .or(tok("*").to(Symbol::Star))
-        .or(tok("/").to(Symbol::Slash));
-
-    let binop = tok("->").to(Symbol::Arrow)
-        .or(tok("<=").to(Symbol::LessThanEqual))
-        .or(tok(">=").to(Symbol::GreaterThanEqual))
-        .or(tok("==").to(Symbol::EqualEqual))
-        .or(tok("!=").to(Symbol::NotEqual))
-        .or(tok("&&").to(Symbol::And))
-        .or(tok("||").to(Symbol::Or));
-
-    let random = tok(";").to(Symbol::SemiColon)
-        .or(tok(":").to(Symbol::Colon))
-        .or(tok(",").to(Symbol::Comma))
-        .or(tok(".").to(Symbol::Dot))
-        .or(just("-").to(Symbol::Minus))
-        .or(tok("#").to(Symbol::Hash))
-        .or(tok("?").to(Symbol::QuestionMark));
-
-    let symbol = binop
-        .or(braces)
-        .or(math)
-        .or(random)
-        .map(Token::Symbol);
-
     let token = keyword
         .or(primitive)
-        .or(literal)
-        .or(cmd_lit)
+        .or(literal())
         .or(ident)
-        .or(symbol);
+        .or(symbol());
 
     token
         .repeated()
