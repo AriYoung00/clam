@@ -1,0 +1,21 @@
+Ideas:
+
+- use strict typing to help make code that interacts with CLI tools clearer
+    - i.e., coerce generic string result returned from many CLI tools into
+      proper types
+- require all / many types to implement string serialization?
+- possibly infer structured text formats from command outputs? e.g. recognize
+  json / yaml / etc when possible
+ 
+- gradual typing: types should not be required explicitly in all cases
+    - attempt to deduce types the way rust does
+    - strict typing. once a variable has a type, that type cannot change in the
+      same context, even with aliasing
+        - this applies to inferred types as well
+        - if a type cannot be deduced, the type of that variable / parameter /
+          return value is concretely determined by the first invocation.
+        - once a type is established for a variable / return value / parameter,
+          it is an error to attempt to apply a different type to that variable
+
+    - if switching the type of a variable / code path is a user error, we can
+      JIT stuff really well
