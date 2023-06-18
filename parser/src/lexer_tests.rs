@@ -70,7 +70,7 @@ mod test {
         assert_eq!(lex("continue"), vec![Token::Keyword(Keyword::Continue)]);
         assert_eq!(lex("in"), vec![Token::Keyword(Keyword::In)]);
         assert_eq!(lex("let"), vec![Token::Keyword(Keyword::Let)]);
-        assert_eq!(lex("var"), vec![Token::Keyword(Keyword::Let)]);
+        assert_eq!(lex("var"), vec![Token::Keyword(Keyword::Var)]);
     }
 
     #[test]
