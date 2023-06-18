@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::tokens::{Primitive, Literal};
 
 pub struct Identifier(String);
 
@@ -63,42 +64,3 @@ pub enum Expr {
     FnCall(String, Vec<Expr>)
 }
 
-pub enum Literal {
-    BoolLiteral(bool),
-    IntLiteral(i64),
-    FloatLiteral(f64),
-    StringLiteral(String),
-    CommandLiteral(String),
-}
-
-impl Literal {
-    pub fn bool_from_str(from: &str) -> Self {
-        Self::BoolLiteral(from.parse::<bool>().unwrap())
-    }
-
-    pub fn int_from_str(from: &str) -> Self {
-        Self::IntLiteral(from.parse::<i64>().unwrap())
-    }
-
-    pub fn float_from_str(from: &str) -> Self {
-        Self::FloatLiteral(from.parse::<f64>().unwrap())
-    }
-
-    /// This funcion constructs a string variant and also fixes escape sequences in the passed
-    /// string
-    pub fn string_from_str(from: &str) -> Self {
-        //TODO implement this
-        Self::StringLiteral(from.into())
-    }
-
-    pub fn command_from_str(from: &str) -> Self {
-        Self::CommandLiteral(from.to_string())
-    }
-}
-
-pub enum Primitive {
-    Boolean,
-    Int,
-    Float,
-    String,
-}

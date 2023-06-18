@@ -2,109 +2,8 @@ extern crate chumsky;
 use chumsky::prelude::*;
 use chumsky::Parser;
 
-#[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-pub enum Keyword {
-    Fn,
-    If,
-    Else,
-    For,
-    While,
-    Break,
-    Continue,
-    In,
-    Let,
-    Var,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-pub enum Literal {
-    Bool(bool),
-    Str(String),
-    Int(i64),
-    Float(f64),
-    Command(String),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-pub enum BinaryOperator {
-    Plus,
-    Minus,
-    Mul,
-    Div,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    Equal,
-    NotEqual,
-    And,
-    Or
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-pub enum UnaryOperator {
-    Negate,
-    Not,
-    Ref,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-pub enum Symbol {
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    LBracket,
-    RBracket,
-    LAngle,
-    RAngle,
-    Colon,
-    SemiColon,
-    Equal,
-    Comma,
-    Arrow,
-    Dot,
-    Star,
-    Slash,
-    Plus,
-    Minus,
-    Hash,
-    Ampersand,
-    ExclamationMark,
-    QuestionMark,
-    LessThanEqual,
-    GreaterThanEqual,
-    EqualEqual,
-    NotEqual,
-    And,
-    Or,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Primitive {
-    Bool,
-    Int,
-    Float,
-    String,
-}
-
-
-#[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-pub enum Token {
-    Keyword(Keyword),
-    Literal(Literal),
-    Identifier(String),
-    BinOp(BinaryOperator),
-    UnOp(UnaryOperator),
-    Symbol(Symbol),
-    Primitive(Primitive)
-}
+use chumsky::text::Character;
+use clam_common::tokens::*;
 
 fn symbol() -> impl Parser<char, Token, Error = Simple<char>> {
     let sym = |c| just(c).padded();
@@ -227,7 +126,7 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
     // For now just let chumsky do identifiers
     let ident = text::ident()
         .padded()
-        .map(|i| Token::Identifier(i));
+        .map(|i: <char as Character>::Collection| Token::Identifier(i.into()));
 
     let token = keyword
         .or(primitive)

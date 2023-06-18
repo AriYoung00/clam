@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod test {
     use chumsky::prelude::*;
+    use clam_common::tokens::*;
     use crate::lexer::*;
 
 
