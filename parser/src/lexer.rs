@@ -8,39 +8,49 @@ use clam_common::tokens::*;
 fn symbol() -> impl Parser<char, Token, Error = Simple<char>> {
     let sym = |c| just(c).padded();
 
-    let braces = sym(")").to(Symbol::RParen)
-        .or(sym("{").to(Symbol::LBrace))
-        .or(sym("}").to(Symbol::RBrace))
-        .or(sym("(").to(Symbol::LParen))
-        .or(sym(")").to(Symbol::RParen))
-        .or(sym("[").to(Symbol::LBracket))
-        .or(sym("]").to(Symbol::RBracket))
-        .or(sym("<").to(Symbol::LAngle))
-        .or(sym(">").to(Symbol::RAngle));
+    let braces = choice::<_, Simple<char>>((
+        sym(")").to(Symbol::RParen),
+        sym("{").to(Symbol::LBrace),
+        sym("}").to(Symbol::RBrace),
+        sym("(").to(Symbol::LParen),
+        sym(")").to(Symbol::RParen),
+        sym("[").to(Symbol::LBracket),
+        sym("]").to(Symbol::RBracket),
+        sym("<").to(Symbol::LAngle),
+        sym(">").to(Symbol::RAngle),
+    ));
 
-    let math = sym("+").to(Symbol::Plus)
-        .or(sym("=").to(Symbol::Equal))
-        .or(sym("*").to(Symbol::Star))
-        .or(sym("/").to(Symbol::Slash));
+    let math = choice::<_, Simple<char>>((
+        sym("+").to(Symbol::Plus),
+        sym("=").to(Symbol::Equal),
+        sym("*").to(Symbol::Star),
+        sym("/").to(Symbol::Slash),
+    ));
 
-    let binop = sym("->").to(Symbol::Arrow)
-        .or(sym("<=").to(Symbol::LessThanEqual))
-        .or(sym(">=").to(Symbol::GreaterThanEqual))
-        .or(sym("==").to(Symbol::EqualEqual))
-        .or(sym("!=").to(Symbol::NotEqual))
-        .or(sym("&&").to(Symbol::And))
-        .or(sym("||").to(Symbol::Or));
+    let binop = choice::<_, Simple<char>>((
+        sym("->").to(Symbol::Arrow),
+        sym("<=").to(Symbol::LessThanEqual),
+        sym(">=").to(Symbol::GreaterThanEqual),
+        sym("==").to(Symbol::EqualEqual),
+        sym("!=").to(Symbol::NotEqual),
+        sym("&&").to(Symbol::And),
+        sym("||").to(Symbol::Or),
+    ));
 
-    let unop = sym("!").to(Symbol::ExclamationMark)
-        .or(sym("-").to(Symbol::Minus))
-        .or(sym("&").to(Symbol::Ampersand));
+    let unop = choice::<_, Simple<char>>((
+        sym("!").to(Symbol::ExclamationMark),
+        sym("-").to(Symbol::Minus),
+        sym("&").to(Symbol::Ampersand),
+    ));
 
-    let random = sym(";").to(Symbol::SemiColon)
-        .or(sym(":").to(Symbol::Colon))
-        .or(sym(",").to(Symbol::Comma))
-        .or(sym(".").to(Symbol::Dot))
-        .or(sym("#").to(Symbol::Hash))
-        .or(sym("?").to(Symbol::QuestionMark));
+    let random = choice::<_, Simple<char>>((
+        sym(";").to(Symbol::SemiColon),
+        sym(":").to(Symbol::Colon),
+        sym(",").to(Symbol::Comma),
+        sym(".").to(Symbol::Dot),
+        sym("#").to(Symbol::Hash),
+        sym("?").to(Symbol::QuestionMark),
+    ));
 
     let symbol = binop
         .or(unop)
@@ -103,23 +113,27 @@ fn literal() -> impl Parser<char, Token, Error = Simple<char>> {
 }
 
 pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
-    let primitive = text::keyword("bool").to(Primitive::Bool)
-        .or(text::keyword("int")     .to(Primitive::Int))
-        .or(text::keyword("float")   .to(Primitive::Float))
-        .or(text::keyword("string")  .to(Primitive::String))
+    let primitive = choice((
+        text::keyword("bool")  .to(Primitive::Bool),
+        text::keyword("int")   .to(Primitive::Int),
+        text::keyword("float") .to(Primitive::Float),
+        text::keyword("string").to(Primitive::String),
+    ))
         .padded()
         .map(Token::Primitive);
 
-    let keyword = text::keyword("fn").to(Keyword::Fn)
-        .or(text::keyword("if")      .to(Keyword::If))
-        .or(text::keyword("else")    .to(Keyword::Else))
-        .or(text::keyword("for")     .to(Keyword::For))
-        .or(text::keyword("while")   .to(Keyword::While))
-        .or(text::keyword("break")   .to(Keyword::Break))
-        .or(text::keyword("continue").to(Keyword::Continue))
-        .or(text::keyword("in")      .to(Keyword::In))
-        .or(text::keyword("let")     .to(Keyword::Let))
-        .or(text::keyword("var")     .to(Keyword::Var))
+    let keyword = choice((
+        text::keyword("fn")      .to(Keyword::Fn),
+        text::keyword("if")      .to(Keyword::If),
+        text::keyword("else")    .to(Keyword::Else),
+        text::keyword("for")     .to(Keyword::For),
+        text::keyword("while")   .to(Keyword::While),
+        text::keyword("break")   .to(Keyword::Break),
+        text::keyword("continue").to(Keyword::Continue),
+        text::keyword("in")      .to(Keyword::In),
+        text::keyword("let")     .to(Keyword::Let),
+        text::keyword("var")     .to(Keyword::Var),
+    ))
         .padded()
         .map(Token::Keyword);
 

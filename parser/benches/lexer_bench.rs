@@ -70,12 +70,21 @@ fn lex_string_literal(bencher: &mut Bencher) {
     bencher.iter(|| lex(r#""hello there""#));
 }
 
+fn lex_float_literal(bencher: &mut Bencher) {
+    bencher.iter(|| lex("123.1415926535"));
+}
+
+fn lex_int_literal(bencher: &mut Bencher) {
+    bencher.iter(|| lex("913232319"));
+}
 
 pub fn lexer_benchmark(c: &mut Criterion) {
     c.bench_function("lex single keyword", lex_single_keyword);
     c.bench_function("lex simple fn", lex_simple_fn);
     c.bench_function("lex single symbol", lex_single_symbol);
     c.bench_function("lex string literal", lex_string_literal);
+    c.bench_function("lex float literal", lex_float_literal);
+    c.bench_function("lex int literal", lex_int_literal);
 }
 
 criterion_group!(benches, lexer_benchmark);
