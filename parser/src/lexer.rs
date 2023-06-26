@@ -62,7 +62,7 @@ fn symbol() -> impl Parser<char, Token, Error = Simple<char>> {
     symbol
 }
 
-fn literal() -> impl Parser<char, Token, Error = Simple<char>> {
+pub fn literal() -> impl Parser<char, Literal, Error = Simple<char>> {
     let _str_interior = just::<_, &str, _>("\"")
         .not()
         .repeated();
@@ -72,24 +72,21 @@ fn literal() -> impl Parser<char, Token, Error = Simple<char>> {
         .then_ignore(just('"'))
         .padded()
         .collect()
-        .map(Literal::Str)
-        .map(Token::Literal);
+        .map(Literal::Str);
 
     let int_lit = text::int(10)
         .padded()
-        .map(|s: String| Literal::Int(s.parse().unwrap()))
-        .map(Token::Literal);
+        .map(|s: String| Literal::Int(s.parse().unwrap()));
 
     // TODO: Make this not suck
     let float_lit = text::int(10)
         .then_ignore(just("."))
         .then(text::int(10))
         .padded()
-        .map(|(whole, part)| Literal::Float(format!("{whole}.{part}").parse().unwrap()))
-        .map(Token::Literal);
+        .map(|(whole, part)| Literal::Float(format!("{whole}.{part}").parse().unwrap()));
 
-    let bool_lit = text::keyword("true").to(true).map(Literal::Bool).map(Token::Literal)
-        .or(text::keyword("false").to(false).map(Literal::Bool).map(Token::Literal));
+    let bool_lit = text::keyword("true").to(true).map(Literal::Bool)
+        .or(text::keyword("false").to(false).map(Literal::Bool));
 
     let cmd_lit_interior = just("```")
         .not()
@@ -100,8 +97,7 @@ fn literal() -> impl Parser<char, Token, Error = Simple<char>> {
         .then_ignore(just("```"))
         .padded()
         .collect()
-        .map(Literal::Command)
-        .map(Token::Literal);
+        .map(Literal::Command);
 
     let literal = str_lit
         .or(cmd_lit)
@@ -112,7 +108,7 @@ fn literal() -> impl Parser<char, Token, Error = Simple<char>> {
     literal
 }
 
-pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
+fn _token() -> impl Parser<char, Token, Error = Simple<char>> {
     let primitive = choice((
         text::keyword("bool")  .to(Primitive::Bool),
         text::keyword("int")   .to(Primitive::Int),
@@ -137,6 +133,7 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
         .padded()
         .map(Token::Keyword);
 
+
     // For now just let chumsky do identifiers
     let ident = text::ident()
         .padded()
@@ -144,11 +141,34 @@ pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
 
     let token = keyword
         .or(primitive)
-        .or(literal())
+        .or(literal().map(Token::Literal))
         .or(ident)
         .or(symbol());
 
     token
+}
+
+#[inline]
+pub fn token() -> impl Parser<char, Token, Error = Simple<char>> {
+    let single_line = just::<_, _, Simple<char>>("//")
+        .then(take_until(text::newline()))
+        .ignored();
+
+    let multi_line = just::<_, _, Simple<char>>("/*")
+        .then(take_until(just("*/")))
+        .ignored();
+
+    let comment = single_line.or(multi_line);
+
+    _token()
+        .padded()
+        .padded_by(
+            comment
+                .padded()
+                .repeated())
+}
+
+pub fn lexer() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
+    token()
         .repeated()
-        .then_ignore(end())
 }

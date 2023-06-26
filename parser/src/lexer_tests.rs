@@ -37,7 +37,7 @@ mod test {
         assert_eq!(lex("113 10"), vec![Literal(Int(113)), Literal(Int(10))]);
 
         // float literal
-        assert_eq!(lex("11300.15"), vec![Literal(Float(11300.15))]);
+        assert_eq!(lex("11300.15"), vec![Literal(Float(11300.15.into()))]);
 
         // string literal
         assert_eq!(lex(r#""hello there""#), vec![Literal(Str("hello there".into()))]);
@@ -71,6 +71,24 @@ mod test {
         assert_eq!(lex("in"), vec![Token::Keyword(Keyword::In)]);
         assert_eq!(lex("let"), vec![Token::Keyword(Keyword::Let)]);
         assert_eq!(lex("var"), vec![Token::Keyword(Keyword::Var)]);
+    }
+
+    #[test]
+    fn test_comment() {
+        // assert_eq!(lex("// this is a comment"), vec![]);
+        assert_eq!(lex("
+            a
+            /*
+             * a multi line String
+             * for this test case
+             */
+            "), vec![Token::Identifier("a".into())]);
+        assert_eq!(lex("// both types of comments
+                a
+                /* in the same
+                 * input
+                 * wow
+                 */"), vec![Token::Identifier("a".into())]);
     }
 
     #[test]
@@ -165,7 +183,11 @@ let thing1 = thing2;
         use self::Primitive::*;
 
         let func_decl = r#"
+/*
+ * This is a multiline comment
+ */
 fn test(i: int) -> int {
+    // add 1 to i
     i + 1
 }
         "#;
