@@ -4,4 +4,3 @@ pub mod ast;
 pub mod tokens;
 
 pub use tokens::Token;
-pub use ast::Ast;

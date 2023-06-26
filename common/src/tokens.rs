@@ -1,6 +1,7 @@
 use derive_more::{FromStr, From};
+use ordered_float::OrderedFloat;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
 pub enum Keyword {
     Fn,
@@ -15,17 +16,19 @@ pub enum Keyword {
     Var,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 #[allow(dead_code)]
 pub enum Literal {
     Bool(bool),
     Str(String),
     Int(i64),
-    Float(f64),
+    Float(OrderedFloat<f64>),
     Command(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl Eq for Literal {}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
 pub enum BinaryOperator {
     Plus,
@@ -42,7 +45,7 @@ pub enum BinaryOperator {
     Or
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
 pub enum UnaryOperator {
     Negate,
@@ -50,7 +53,7 @@ pub enum UnaryOperator {
     Ref,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
 pub enum Symbol {
     LParen,
@@ -83,7 +86,7 @@ pub enum Symbol {
     Or,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Primitive {
     Bool,
     Int,
@@ -91,13 +94,13 @@ pub enum Primitive {
     String,
 }
 
-#[derive(Clone, Debug, PartialEq, FromStr, From)]
+#[derive(Clone, Debug, PartialEq, FromStr, From, Eq, Hash)]
 #[from(forward)]
 pub struct Identifier(String);
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(dead_code)]
 pub enum Token {
     Keyword(Keyword),
