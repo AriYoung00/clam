@@ -1,69 +1,25 @@
-#[allow(unused_imports)]
-
-#[cfg(test)]
-mod test {
-    use chumsky::prelude::*;
-    use clam_common::tokens::*;
-    use clam_common::ast::*;
-    use crate::parser::*;
+use chumsky::Parser;
+use clam_common::ast::Block;
 
 
-    fn parse(s: &str) -> Block {
-        parser().parse(s).unwrap()
-    }
+use crate::parser::parser;
+
+fn parse(s: &str) -> Block {
+    parser().parse(s).unwrap()
+}
+
+mod expr {
+    use clam_common::{ast::*, tokens::BinaryOperator};
+    use super::parse;
 
     fn block(exprs: Vec<Expr>) -> Block {
         Block::new(exprs.into_iter().map(Statement::Expr as fn(_) -> _).collect())
     }
 
-    // #[test]
-    // fn test_single_primitive() {
-    //     use self::Token::Primitive;
-    //     use self::Primitive::*;
-    //     assert_eq!(parse("bool"),   vec![Primitive(Bool)]);
-    //     assert_eq!(parse("int"),    vec![Primitive(Int)]);
-    //     assert_eq!(parse("float"),  vec![Primitive(Float)]);
-    //     assert_eq!(parse("string"), vec![Primitive(String)]);
-    // }
-
     #[test]
     fn test_literal() {
         use Expr::Literal;
-        use self::Literal::*;
-
-        //assert_eq!(parse("1 + 1 * 1;"), Block::new(vec![Statement::Expr(
-        //    Expr::BinOp(
-        //        BinaryOperator::Plus, 
-        //        Box::new(Expr::Literal(Int(1))),
-        //        Box::new(Expr::BinOp(
-        //            BinaryOperator::Mul,
-        //            Box::new(Expr::Literal(Int(1))),
-        //            Box::new(Expr::Literal(Int(1))),
-        //        )),
-        //    )
-        //)]));
-        //assert_eq!(parse("1 * 1 + 1;"), Block::new(vec![Statement::Expr(
-        //    Expr::BinOp(
-        //        BinaryOperator::Plus, 
-        //        Box::new(Expr::BinOp(
-        //            BinaryOperator::Mul,
-        //            Box::new(Expr::Literal(Int(1))),
-        //            Box::new(Expr::Literal(Int(1))),
-        //        )),
-        //        Box::new(Expr::Literal(Int(1))),
-        //    )
-        //)]));
-        //assert_eq!(parse("1 * (1 + 1);"), Block::new(vec![Statement::Expr(
-        //    Expr::BinOp(
-        //        BinaryOperator::Mul, 
-        //        Box::new(Expr::Literal(Int(1))),
-        //        Box::new(Expr::BinOp(
-        //            BinaryOperator::Plus,
-        //            Box::new(Expr::Literal(Int(1))),
-        //            Box::new(Expr::Literal(Int(1))),
-        //        )),
-        //    )
-        //)]));
+        use clam_common::tokens::Literal::*;
 
         // bool literal
         assert_eq!(parse("true;"), Block::new(vec![Statement::Expr(Expr::Literal(Bool(true)))]));
@@ -91,4 +47,57 @@ mod test {
                 cd test
                 touch thing.txt"#.into()))]));
     }
+
+    #[test]
+    fn test_precedence() {
+        use clam_common::tokens::Literal::*;
+
+        assert_eq!(parse("1 + 1 * 1;"), Block::new(vec![Statement::Expr(
+            Expr::BinOp(
+                BinaryOperator::Plus, 
+                Box::new(Expr::Literal(Int(1))),
+                Box::new(Expr::BinOp(
+                    BinaryOperator::Mul,
+                    Box::new(Expr::Literal(Int(1))),
+                    Box::new(Expr::Literal(Int(1))),
+                )),
+            )
+        )]));
+        assert_eq!(parse("1 * 1 + 1;"), Block::new(vec![Statement::Expr(
+            Expr::BinOp(
+                BinaryOperator::Plus, 
+                Box::new(Expr::BinOp(
+                    BinaryOperator::Mul,
+                    Box::new(Expr::Literal(Int(1))),
+                    Box::new(Expr::Literal(Int(1))),
+                )),
+                Box::new(Expr::Literal(Int(1))),
+            )
+        )]));
+        assert_eq!(parse("1 * (1 + 1);"), Block::new(vec![Statement::Expr(
+            Expr::BinOp(
+                BinaryOperator::Mul, 
+                Box::new(Expr::Literal(Int(1))),
+                Box::new(Expr::BinOp(
+                    BinaryOperator::Plus,
+                    Box::new(Expr::Literal(Int(1))),
+                    Box::new(Expr::Literal(Int(1))),
+                )),
+            )
+        )]));
+    }
 }
+
+
+// #[test]
+// fn test_single_primitive() {
+//     use self::Token::Primitive;
+//     use self::Primitive::*;
+//     assert_eq!(parse("bool"),   vec![Primitive(Bool)]);
+//     assert_eq!(parse("int"),    vec![Primitive(Int)]);
+//     assert_eq!(parse("float"),  vec![Primitive(Float)]);
+//     assert_eq!(parse("string"), vec![Primitive(String)]);
+// }
+
+
+
