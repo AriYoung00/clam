@@ -32,14 +32,18 @@ IDENTIFIER := [a-zA-Z_][a-zA-Z0-9_-]*
 # binary operators
 ADD := "+"
 SUB := "-"
+
 MUL := "*"
 DIV := "/"
+
 LESS := "<"
 LESS_EQUAL := "<="
 GREATER := ">"
 GREATER_EQUAL := ">="
+
 EQUAL := "=="
 NOT_EQUAL := "!="
+
 AND := "&&"
 OR := "||"
 
@@ -114,6 +118,7 @@ BinaryOperator := ADD | SUB | MUL | DIV
                 | LESS | LESS_EQUAL | GREATER | GREATER_EQUAL
                 | EQUAL | NOT_EQUAL | AND | OR
 
+
 BinaryOperation := Expr, BinaryOperator, Expr
 
 IfClause := IF, Expr, Block
@@ -138,6 +143,14 @@ Expr := Literal
       | BinaryOperation
       | Identifier
       | FnCall
+
+Expr := Literal, Expr'
+      | "(", Expr, ")", Expr'
+      | Identifier, Expr'
+      | FnCall, Expr'
+
+Expr' := BinaryOperator, Expr'
+      | empty
 
 # later
 FnDecl := "fn", Identifier, "(", FormalParam?, ")", ReturnType?, ";"
