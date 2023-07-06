@@ -96,7 +96,7 @@ pub enum Primitive {
 
 #[derive(Clone, Debug, PartialEq, FromStr, From, Eq, Hash)]
 #[from(forward)]
-pub struct Identifier(String);
+pub struct Identifier(pub String);
 
 
 

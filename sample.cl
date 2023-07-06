@@ -37,6 +37,15 @@ fn test(i: int) -> int {
   i + 1
 }
 
+
+let test = fn(i: int) -> int {
+  
+}
+
+let test2 = fn(i) {
+  
+}
+
 if true {
   // do stuff
 }
@@ -48,6 +57,8 @@ struct A {
   fn a(s: string, n: u32) {
     // do stuff
   }
+
+  const a = 
 }
 
 impl A {

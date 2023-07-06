@@ -1,19 +1,47 @@
-use chumsky::Parser;
-use clam_common::ast::Block;
+fn parse(s: &str) -> clam_common::ast::Block {
+    chumsky::Parser::parse(&crate::parser::block(), s).unwrap()
+}
 
-
-use crate::parser::parser;
-
-fn parse(s: &str) -> Block {
-    parser().parse(s).unwrap()
+fn parse_top(s: &str) -> Vec<clam_common::ast::FnDef> {
+    crate::parser::parser(s).unwrap()
 }
 
 mod expr {
-    use clam_common::{ast::*, tokens::BinaryOperator};
-    use super::parse;
+    use chumsky::Parser;
+    // use clam_common::ast::{Block, FnDef};
+    use clam_common::{ast, tokens::Literal};
 
-    fn block(exprs: Vec<Expr>) -> Block {
+
+    use clam_common::{ast::*, tokens::{BinaryOperator, Identifier}};
+    use maplit::hashmap;
+    use super::{parse, parse_top};
+
+
+    fn block(exprs: Vec<Expr>) -> ast::Block {
         Block::new(exprs.into_iter().map(Statement::Expr as fn(_) -> _).collect())
+    }
+
+    #[test]
+    fn parse_top_fn_expr() {
+        use clam_common::tokens::Primitive::*;
+        let res = parse_top("
+fn test_thing(a: int, b: float) -> int => a == b
+        ");
+
+        let ty = clam_common::ast::Type::Primitive as fn (_) -> Type;
+        let id = |s: &str| Identifier(s.into());
+
+        let expected = vec![
+FnDef{ 
+    name: "test_thing".into(),
+    param_list: vec![(id("a"), Some(ty(Int))), (id("b"), Some(ty(Float)))],
+    ret_type: Some(ty(Int)),
+    body: Expr::BinOp(BinaryOperator::Equal,
+        Box::new(Expr::Identifier("a".into())),
+        Box::new(Expr::Identifier("b".into())))
+}];
+
+        assert_eq!(res, expected);
     }
 
     #[test]
@@ -46,6 +74,25 @@ mod expr {
                 mkdir test
                 cd test
                 touch thing.txt"#.into()))]));
+    }
+
+    #[test]
+    fn test_identifier() {
+        assert_eq!(parse("qwertyuiop;"), block(vec![Expr::Identifier("qwertyuiop".into())]));
+    }
+
+    #[test]
+    fn test_fn_call() {
+        use clam_common::tokens::UnaryOperator::Negate;
+        use clam_common::tokens::Literal::Int;
+
+        let res = parse("f(a, b);");
+        assert_eq!(res, block(vec![Expr::FnCall("f".into(), vec![Expr::Identifier("a".into()), Expr::Identifier("b".into())])]));
+
+        let res = parse("f(-1, b);");
+        assert_eq!(res, block(vec![Expr::FnCall("f".into(), 
+                    vec![Expr::UnOp(Negate, Box::new(Expr::Literal(Int(1)))), Expr::Identifier("b".into())])]));
+
     }
 
     #[test]
@@ -85,19 +132,63 @@ mod expr {
                 )),
             )
         )]));
+        assert_eq!(parse("1 * 1 + 1 * 1;"), Block::new(vec![Statement::Expr(
+            Expr::BinOp(
+                BinaryOperator::Plus, 
+                Box::new(Expr::BinOp(
+                    BinaryOperator::Mul,
+                    Box::new(Expr::Literal(Int(1))),
+                    Box::new(Expr::Literal(Int(1))),
+                )),
+                Box::new(Expr::BinOp(
+                    BinaryOperator::Mul,
+                    Box::new(Expr::Literal(Int(1))),
+                    Box::new(Expr::Literal(Int(1))),
+                )),
+            )
+        )]));
     }
 }
 
+mod r#let {
+    use clam_common::ast::*;
+    use super::parse;
 
-// #[test]
-// fn test_single_primitive() {
-//     use self::Token::Primitive;
-//     use self::Primitive::*;
-//     assert_eq!(parse("bool"),   vec![Primitive(Bool)]);
-//     assert_eq!(parse("int"),    vec![Primitive(Int)]);
-//     assert_eq!(parse("float"),  vec![Primitive(Float)]);
-//     assert_eq!(parse("string"), vec![Primitive(String)]);
-// }
+    #[test]
+    fn test_simple_let() {
+        let res = parse("let thing;");
+        assert_eq!(res, Block::new(vec![Statement::Let("thing".into(), None, None)]));
 
+        let res = parse("let thing = true;");
+        assert_eq!(res, Block::new(vec![Statement::Let("thing".into(), None, Some(Expr::Literal(clam_common::tokens::Literal::Bool(true))))]));
+    }
+}
 
+mod assignment {
+    use clam_common::{ast::*, tokens::Literal};
+    use super::parse;
 
+    #[test]
+    fn test_simple_assignment() {
+        let res = parse("thing = true;");
+        assert_eq!(res, Block::new(vec![Statement::Assign("thing".into(), Expr::Literal(Literal::Bool(true)))]));
+    }
+}
+
+mod conditional {
+    // use clam_common::{ast::* tokens::Literal};
+    // use super::parse;
+
+    // #[test]
+    // fn test_simple_conditional() {
+    //     let res = parse("if true then a = b;");
+    //     assert_eq!(res, Block::new(vec![
+    //         Statement::Expr(Expr::Conditional(
+    //             Box::new(Expr::Literal(Boolean(true))),
+    //             Block{ statements: vec![
+    //                 Statement::Assign(Identifier("a"), Expr::Identifier("b"))
+    //             ]}
+    //         )
+    //     ]))
+    // }
+}

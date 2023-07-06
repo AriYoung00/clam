@@ -15,8 +15,21 @@ impl Block {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FnDef {
     pub name: String,
-    pub param_list: HashMap<Identifier, Type>,
+    pub param_list: Vec<(Identifier, Option<Type>)>,
+    pub ret_type: Option<Type>,
+    pub body: Expr,
 }
+
+/*
+fn (a, b) {
+    if a {
+        "thing"
+    }
+    else {
+        // nothing implicitly returns `()`
+    }
+}
+ */
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
@@ -26,34 +39,30 @@ pub enum Type {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Conditional {
-    cond: Expr,
-    body: Block,
+    pub cond: Box<Expr>,
+    pub body: Block,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WhileLoop {
-    cond: Expr,
-    body: Block,
+    pub cond: Box<Expr>,
+    pub body: Block,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ForLoop {
-    var: Identifier,
-    iter: Expr,
-    body: Block,
+    pub var: Identifier,
+    pub iter: Box<Expr>,
+    pub body: Block,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
-    Block(Block),
     FnDef(FnDef),
     Let(Identifier, Option<Type>, Option<Expr>),
     Assign(Identifier, Expr),
     Expr(Expr),
     Break,
-    Conditional(Conditional),
-    WhileLoop(WhileLoop),
-    ForLoop(ForLoop),
 }
 
 // pub enum BinaryOperator {
@@ -69,6 +78,10 @@ pub enum Expr {
     BinOp(BinaryOperator, Box<Expr>, Box<Expr>),
     UnOp(UnaryOperator, Box<Expr>),
     Identifier(Identifier),
-    FnCall(String, Vec<Expr>)
+    FnCall(Identifier, Vec<Expr>),
+    Block(Vec<Statement>),
+    Conditional(Box<Expr>, Block),
+    WhileLoop(Box<Expr>, Block),
+    ForLoop(Identifier, Box<Expr>, Block),
 }
 

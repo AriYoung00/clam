@@ -102,7 +102,7 @@ FormalParam := Identifier, ":", Type
 CommaFormalParam := ",", FormalParam
 FormalParam := FormalParam, CommaFormalParam*
 ReturnType := "->", Type
-FnDef := "fn", Identifier, "(", FormalParam?, ")", ReturnType?, Block
+FnDef := "fn", Identifier, "(", FormalParam?, ")", ReturnType?, Expr
 
 # MVP
 BoolLiteral := TRUE | FALSE;
@@ -138,16 +138,20 @@ FnCall := Identifier, "(", ArgList?, ")"
 
 Break := "break"
 
-Expr := Literal
-      | "(", Expr, ")"
-      | BinaryOperation
-      | Identifier
-      | FnCall
+# Expr := Literal, Expr'
+#       | "(", Expr, ")", Expr'
+#       | Identifier, Expr'
+#       | FnCall, Expr'
 
-Expr := Literal, Expr'
-      | "(", Expr, ")", Expr'
-      | Identifier, Expr'
-      | FnCall, Expr'
+Expr := Expr'', Expr'
+
+Expr'' := Literal
+        | "(" Expr ")"
+        | Identifier
+        | FnCall
+        | Block
+        | Conditional
+        | WhileLoop
 
 Expr' := BinaryOperator, Expr'
       | empty
