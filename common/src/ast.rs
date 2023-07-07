@@ -47,7 +47,7 @@ pub enum BinaryOperator {
 
 #[derive(Clone, Debug, PartialEq, Eq, From)]
 #[from(forward)]
-pub struct Identifier(String);
+pub struct Identifier(pub String);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
