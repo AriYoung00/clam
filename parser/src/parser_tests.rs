@@ -15,6 +15,11 @@ mod lalrpop {
 
     use crate::lexer::Lexer;
 
+    #[inline]
+    fn b<T>(thing: T) -> Box<T> {
+        Box::new(thing)
+    }
+
     #[test]
     fn test_literal() {
         let plex = |thing| {
@@ -36,23 +41,67 @@ mod lalrpop {
     }
 
     #[test]
-    fn test_binop() {
+    fn test_simple_binop() {
         use Expr::BinOp;
-        use BinaryOperator::Plus;
+        use BinaryOperator::{Plus, Times};
         use Expr::Literal;
         use self::Literal::Int;
+
+        let plex = |thing| {
+            let lexer = Lexer::new(thing);
+            let parser_ = parser::ExprParser::new();
+            parser_.parse(lexer)
+        };
+        let b = |a| Box::new(a);
+
+        let expr = plex("5 + 5").unwrap();
+        assert_eq!(expr, Box::new(
+            BinOp(Plus, b(Literal(Int(5))), b(Literal(Int(5))))
+        ));
+
+        let expr = plex("5 + 5 * 3").unwrap();
+        assert_eq!(expr, b(
+            BinOp(Plus, b(Literal(Int(5))), b(BinOp(Times, b(Literal(Int(5))), b(Literal(Int(3))))))
+        ));
+    }
+
+    #[test]
+    fn test_binop_with_unop() {
+        use Expr::{UnOp, BinOp, Literal};
+        use self::Literal::Int;
+        use BinaryOperator::Plus;
+        use UnaryOperator::Negate;
+
         let plex = |thing| {
             let lexer = Lexer::new(thing);
             let parser_ = parser::ExprParser::new();
             parser_.parse(lexer)
         };
 
-        let b = |a| Box::new(a);
-        let expr = plex("5 + 5").unwrap();
-        assert_eq!(expr, Box::new(
-            BinOp(Plus, b(Literal(Int(5))), b(Literal(Int(5))))
+        let expr = plex("5 + -1").unwrap();
+        assert_eq!(expr, b(
+            BinOp(Plus, b(Literal(Int(5))), b(UnOp(Negate, b(Literal(Int(1))))))
         ));
+    }
 
+    #[test]
+    fn test_binop_with_parens() {
+        use Expr::{BinOp, Literal};
+        use self::Literal::Int;
+        use BinaryOperator::{Plus, Times};
+        
+
+        let plex = |thing| {
+            let lexer = Lexer::new(thing);
+            let parser_ = parser::ExprParser::new();
+            parser_.parse(lexer)
+        };
+
+
+        let expr = plex("(1 + 1) * 3").unwrap();
+        assert_eq!(expr, b(
+            BinOp(Times, b(BinOp(Plus, b(Literal(Int(1))), b(Literal(Int(1))))), b(Literal(Int(3))))
+        ))
     }
 }
 
