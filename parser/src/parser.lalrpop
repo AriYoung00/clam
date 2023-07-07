@@ -40,7 +40,7 @@ pub Type: ast::Type = {
 
 
 pub Param: (ast::Identifier, Option<ast::Type>) = 
-    <name:Identifier> <tname:Type?> => (<>);
+    <name:Identifier> ":"? <tname:Type?> => (<>);
 
 pub RetType: ast::Type =
     "->" <Type> => <>;
