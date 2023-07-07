@@ -19,6 +19,12 @@ mod lalrpop {
         parser_.parse(lexer)
     }
 
+    fn pl_stmt(s: &str) -> Result<Statement, ParseError<usize, Token, LexicalError>> {
+        let lexer = Lexer::new(s);
+        let parser_ = parser::StatementParser::new();
+        parser_.parse(lexer)
+    }
+
     #[test]
     fn test_literal() {
         let expr = plex("5").unwrap();
@@ -161,6 +167,108 @@ mod lalrpop {
             )
         )))
     }
+
+//    #[test]
+//    fn test_simple_fn_call() {
+//        use Expr::FnCall;
+//
+//        let expr = plex("f(a, b)").unwrap();
+//        assert_eq!(expr, b(FnCall("f".into(), vec![Expr::Identifier("a".into()), Expr::Identifier("b".into())])));
+//
+//        let expr = plex("f(-1, b)").unwrap();
+//        assert_eq!(expr, b(FnCall(
+//            "f".into(), 
+//            vec![
+//                Expr::UnOp(UnaryOperator::Negate, Box::new(Expr::Literal(Literal::Int(1)))), 
+//                Expr::Identifier("b".into())
+//            ]
+//        )));
+//    }
+
+    #[test]
+    fn test_simple_fn_def() {
+        use Statement::FnDef;
+
+        let stmt = pl_stmt("
+fn thing(a, b: int)
+    a
+        ").unwrap();
+        assert_eq!(stmt, FnDef{
+            name: Identifier("thing".into()),
+            param_list: vec![
+                (Identifier("a".into()), None), 
+                (Identifier("b".into()), Some(Type::Primitive(Primitive::Int)))
+            ],
+            ret_type: None,
+            body: Expr::Identifier("a".into())
+        });
+
+        let stmt = pl_stmt("
+fn thing(a, b: int) -> bool
+    c == d
+        ").unwrap();
+        assert_eq!(stmt, FnDef{
+            name: Identifier("thing".into()),
+            param_list: vec![
+                (Identifier("a".into()), None), 
+                (Identifier("b".into()), Some(Type::Primitive(Primitive::Int)))
+            ],
+            ret_type: Some(Type::Primitive(Primitive::Bool)),
+            body: Expr::BinOp(
+                BinaryOperator::Eq,
+                b(Expr::Identifier("c".into())),
+                b(Expr::Identifier("d".into()))
+            )
+        });
+
+//        let stmt = pl_stmt("
+//fn thing(a, b: int) -> bool {
+//    a = b;
+//    a = 1 + 1
+//}
+//        ").unwrap();
+//        assert_eq!(stmt, FnDef{
+//            name: Identifier("thing".into()),
+//            param_list: vec![
+//                (Identifier("a".into()), None), 
+//                (Identifier("b".into()), Some(Type::Primitive(Primitive::Bool)))
+//            ],
+//            ret_type: Some(Type::Primitive(Primitive::Bool)),
+//            body: Expr::Block(Block::new(vec![
+//                Statement::Assign(Identifier("a".into()), b(Expr::Identifier("b".into()))),
+//                Statement::Assign(
+//                    Identifier("a".into()), 
+//                    b(Expr::BinOp(
+//                        BinaryOperator::Plus,
+//                        b(Expr::Literal(Literal::Int(1))),
+//                        b(Expr::Literal(Literal::Int(1)))
+//                    ))
+//                )
+//            ]))
+//        });
+    }
+
+    #[test]
+    fn test_simple_assignment() {
+        use Statement::Assign;
+
+        let stmt = pl_stmt("thing = true").unwrap();
+        assert_eq!(stmt, Assign(
+            "thing".into(), 
+            b(Expr::Literal(Literal::Bool(true)))
+        ));
+    }
+
+    #[test]
+    fn test_simple_let() {
+        use Statement::Let;
+
+        let stmt = pl_stmt("let thing").unwrap();
+        assert_eq!(stmt, Let("thing".into(), None, None));
+
+        let stmt = pl_stmt("let thing = true").unwrap();
+        assert_eq!(stmt, Let("thing".into(), None, Some(b(Expr::Literal(Literal::Bool(true))))));
+    }
 }
 
 /*
@@ -187,44 +295,6 @@ FnDef{
 
         assert_eq!(res, expected);
     }
-
-    #[test]
-    fn test_fn_call() {
-        use clam_common::tokens::UnaryOperator::Negate;
-        use clam_common::tokens::Literal::Int;
-
-        let res = parse("f(a, b);");
-        assert_eq!(res, block(vec![Expr::FnCall("f".into(), vec![Expr::Identifier("a".into()), Expr::Identifier("b".into())])]));
-
-        let res = parse("f(-1, b);");
-        assert_eq!(res, block(vec![Expr::FnCall("f".into(), 
-                    vec![Expr::UnOp(Negate, Box::new(Expr::Literal(Int(1)))), Expr::Identifier("b".into())])]));
-
-    }
 }
 
-mod r#let {
-    use clam_common::ast::*;
-    use super::parse;
-
-    #[test]
-    fn test_simple_let() {
-        let res = parse("let thing;");
-        assert_eq!(res, Block::new(vec![Statement::Let("thing".into(), None, None)]));
-
-        let res = parse("let thing = true;");
-        assert_eq!(res, Block::new(vec![Statement::Let("thing".into(), None, Some(Expr::Literal(clam_common::tokens::Literal::Bool(true))))]));
-    }
-}
-
-mod assignment {
-    use clam_common::{ast::*, tokens::Literal};
-    use super::parse;
-
-    #[test]
-    fn test_simple_assignment() {
-        let res = parse("thing = true;");
-        assert_eq!(res, Block::new(vec![Statement::Assign("thing".into(), Expr::Literal(Literal::Bool(true)))]));
-    }
-}
 */
