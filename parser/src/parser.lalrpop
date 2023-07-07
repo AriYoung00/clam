@@ -13,6 +13,72 @@ use crate::Token;
 
 grammar;
 
+Comma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub Identifier: ast::Identifier = "identifier" => <>.into();
+
+pub Primitive: ast::Primitive = {
+    "int"    => ast::Primitive::Int,
+    "float"  => ast::Primitive::Float,
+    "bool"   => ast::Primitive::Bool,
+    "string" => ast::Primitive::String,
+    "cmd"    => ast::Primitive::Command,
+}
+
+pub Type: ast::Type = {
+    Primitive  => ast::Type::Primitive(<>),
+    Identifier => ast::Type::Name(<>),
+}
+
+
+pub Param: (ast::Identifier, Option<ast::Type>) = 
+    <name:Identifier> <tname:Type?> => (<>);
+
+pub RetType: ast::Type =
+    "->" <Type> => <>;
+
+pub FnDef: ast::Statement = {
+    "fn" <name:Identifier>  "(" <params:Comma<Param>> ")" 
+    <ret_type:RetType?> <body:Expr>
+        => ast::Statement::FnDef{name, param_list: params, ret_type, 
+                                 body: *body}
+}
+
+pub LetType: ast::Type = {
+    ":" <Type> => <>
+}
+
+pub LetAssign: Box<ast::Expr> = "=" <e:Expr> => e;
+pub Let: ast::Statement = "let" <Identifier> <LetType?> <LetAssign?>
+        => ast::Statement::Let(<>);
+
+// pub Assign: ast::Statement => {}
+// pub Break: ast::Statement => {}
+
+pub Statement: ast::Statement = {
+    <FnDef>, <Let>,//  Assign, Break,
+    <Expr> => ast::Statement::Expr(<>),
+}
+
+StatementSemi: ast::Statement = <Statement> ";";
+
+pub Block: ast::Block = "{" <mut stmts:StatementSemi*> <last:Statement?> "}" 
+    => ast::Block::new(match last {
+        Some(s) => {
+            stmts.push(s);
+            stmts
+        },
+        None => stmts
+    });
+
 pub Literal: ast::Literal = {
     "intLit" => ast::Literal::Int(<>),
     "floatLit" => ast::Literal::Float(<>),
@@ -115,6 +181,7 @@ extern {
         "int" => Token::Int,
         "float" => Token::Float,
         "string" => Token::String,
+        "cmd" => Token::Cmd,
         "+" => Token::Plus,
         "-" => Token::Minus,
         "*" => Token::Asterisk,

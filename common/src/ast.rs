@@ -62,22 +62,7 @@ impl Block {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FnDef {
-    pub name: String,
-    pub param_list: Vec<(Identifier, Option<Type>)>,
-    pub ret_type: Option<Type>,
-    pub body: Expr,
 }
-
-/*
-fn (a, b) {
-    if a {
-        "thing"
-    }
-    else {
-        // nothing implicitly returns `()`
-    }
-}
- */
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
@@ -106,10 +91,15 @@ pub struct ForLoop {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
-    FnDef(FnDef),
-    Let(Identifier, Option<Type>, Option<Expr>),
+    FnDef {
+        name: Identifier,
+        param_list: Vec<(Identifier, Option<Type>)>,
+        ret_type: Option<Type>,
+        body: Expr,
+    },
+    Let(Identifier, Option<Type>, Option<Box<Expr>>),
     Assign(Identifier, Expr),
-    Expr(Expr),
+    Expr(Box<Expr>),
     Break,
 }
 

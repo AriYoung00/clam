@@ -33,7 +33,7 @@ pub enum Token {
     #[token("string")]
     String,
     #[token("cmd")]
-    Command,
+    Cmd,
 
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice().parse().ok())]
     Identifier(String),
