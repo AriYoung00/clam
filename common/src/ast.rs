@@ -1,5 +1,53 @@
-use std::collections::HashMap;
-use crate::tokens::{Primitive, Literal, UnaryOperator, BinaryOperator, Identifier};
+use derive_more::From;
+use ordered_float::OrderedFloat;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Primitive {
+    Int,
+    Float,
+    Bool,
+    String,
+    Command
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Literal {
+    Int(i64),
+    Float(OrderedFloat<f64>),
+    Bool(bool),
+    String(String),
+    Command(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UnaryOperator {
+    Not,
+    BitInvert,
+    Negate,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BinaryOperator {
+    Plus,
+    Minus,
+    Times,
+    Div,
+    Mod,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+    Eq,
+    Ne,
+    And,
+    Or,
+    BitAnd,
+    BitOr,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, From)]
+#[from(forward)]
+pub struct Identifier(String);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
@@ -64,13 +112,6 @@ pub enum Statement {
     Expr(Expr),
     Break,
 }
-
-// pub enum BinaryOperator {
-//     Add, Sub,
-//     Mul, Div,
-//     Less, LessEq, Greater, GreaterEq,
-//     Eq, NotEq, And, Or
-// }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
