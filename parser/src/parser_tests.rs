@@ -1,13 +1,63 @@
-fn parse(s: &str) -> clam_common::ast::Block {
-    chumsky::Parser::parse(&crate::parser::block(), s).unwrap()
+// fn parse(s: &str) -> clam_common::ast::Block {
+//     chumsky::Parser::parse(&crate::parser::block(), s).unwrap()
+// }
+
+// fn parse_top(s: &str) -> Vec<clam_common::ast::FnDef> {
+//     crate::parser::parser(s).unwrap()
+// }
+
+mod lalrpop {
+    use clam_common::ast::*;
+    use lalrpop_util::lalrpop_mod;
+    use logos::Logos;
+    use ordered_float::OrderedFloat;
+    lalrpop_mod!(pub parser);
+
+    use crate::lexer::Lexer;
+
+    #[test]
+    fn test_literal() {
+        let plex = |thing| {
+            let lexer = Lexer::new(thing);
+            let parser_ = parser::ExprParser::new();
+            parser_.parse(lexer)
+        };
+
+        let expr = plex("5").unwrap();
+        assert_eq!(expr, Box::new(Expr::Literal(Literal::Int(5))));
+        let expr = plex("true").unwrap();
+        assert_eq!(expr, Box::new(Expr::Literal(Literal::Bool(true))));
+        let expr = plex("3.14").unwrap();
+        assert_eq!(expr, Box::new(Expr::Literal(Literal::Float(OrderedFloat(3.14)))));
+        let expr = plex(r#""hello there""#).unwrap();
+        assert_eq!(expr, Box::new(Expr::Literal(Literal::String("hello there".into()))));
+        let expr = plex("`hello there`").unwrap();
+        assert_eq!(expr, Box::new(Expr::Literal(Literal::Command("hello there".into()))));
+    }
+
+    #[test]
+    fn test_binop() {
+        use Expr::BinOp;
+        use BinaryOperator::Plus;
+        use Expr::Literal;
+        use self::Literal::Int;
+        let plex = |thing| {
+            let lexer = Lexer::new(thing);
+            let parser_ = parser::ExprParser::new();
+            parser_.parse(lexer)
+        };
+
+        let b = |a| Box::new(a);
+        let expr = plex("5 + 5").unwrap();
+        assert_eq!(expr, Box::new(
+            BinOp(Plus, b(Literal(Int(5))), b(Literal(Int(5))))
+        ));
+
+    }
 }
 
-fn parse_top(s: &str) -> Vec<clam_common::ast::FnDef> {
-    crate::parser::parser(s).unwrap()
-}
-
+/*
 mod expr {
-    use chumsky::Parser;
     // use clam_common::ast::{Block, FnDef};
     use clam_common::{ast, tokens::Literal};
 
@@ -192,3 +242,4 @@ mod conditional {
     //     ]))
     // }
 }
+*/

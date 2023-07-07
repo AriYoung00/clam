@@ -1,0 +1,158 @@
+// use clam_common::ast;
+// use clam_common::ast::BinaryOperator;
+// use crate::lexer::LexicalError;
+use clam_common::{
+    ast,
+    ast::{
+        BinaryOperator,
+    }
+};
+use ordered_float::OrderedFloat;
+use crate::lexer::LexicalError;
+use crate::Token;
+
+grammar;
+
+pub Literal: ast::Literal = {
+    "intLit" => ast::Literal::Int(<>),
+    "floatLit" => ast::Literal::Float(<>),
+    "boolLit" => ast::Literal::Bool(<>),
+    "stringLit" => ast::Literal::String(<>),
+    "commandLit" => ast::Literal::Command(<>),
+}
+
+pub Expr: Box<ast::Expr> = {
+    #[precedence(level="1")]
+    <t:Term> => t,
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <lhs:Expr> <op:PrecTwoOp> <rhs:Term> => {
+        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+    },
+    #[precedence(level="3")] #[assoc(side="left")]
+    <lhs:Expr> <op:PrecThreeOp> <rhs:Term> => {
+        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+    },
+    #[precedence(level="4")] #[assoc(side="left")]
+    <lhs:Expr> <op:PrecFourOp> <rhs:Term> => {
+        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+    },
+    #[precedence(level="5")] #[assoc(side="left")]
+    <lhs:Expr> <op:PrecFiveOp> <rhs:Term> => {
+        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+    },
+    #[precedence(level="6")] #[assoc(side="left")]
+    <lhs:Expr> <op:PrecSixOp> <rhs:Term> => {
+        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+    },
+}
+
+pub Term: Box<ast::Expr> = {
+    Literal => Box::new(ast::Expr::Literal(<>)),
+    "identifier" => Box::new(ast::Expr::Identifier(<>.into())),
+    // TODO: fix unary operator
+    // <op:UnaryOperator> <e:Expr> => {
+    //     Box::new(ast::Expr::UnaryOperator(op, e)),
+    // }
+    "(" <e:Expr> ")" => e,
+}
+
+pub UnaryOperator: ast::UnaryOperator = {
+    "!" => ast::UnaryOperator::Not,
+    // TODO: add bit invert
+    // "~" => ast::UnaryOperator::BitInvert,
+    "-" => ast::UnaryOperator::Negate,
+}
+
+pub PrecTwoOp: BinaryOperator = {
+    "*"  => BinaryOperator::Times,
+    "/"  => BinaryOperator::Div,
+    "%"  => BinaryOperator::Mod,
+}
+
+pub PrecThreeOp: BinaryOperator = {
+    "+"  => BinaryOperator::Plus,
+    "-"  => BinaryOperator::Minus,
+}
+
+pub PrecFourOp: BinaryOperator = {
+    "<"  => BinaryOperator::Lt,
+    "<=" => BinaryOperator::Lte,
+    ">"  => BinaryOperator::Gt,
+    ">=" => BinaryOperator::Gte,
+}
+
+pub PrecFiveOp: BinaryOperator = {
+    "==" => BinaryOperator::Eq,
+    "!=" => BinaryOperator::Ne,
+}
+
+pub PrecSixOp: BinaryOperator = {
+    "&"  => BinaryOperator::BitAnd,
+    "|"  => BinaryOperator::BitOr,
+}
+
+pub PrecSevenOp: BinaryOperator = {
+    "&&" => BinaryOperator::And,
+    "||" => BinaryOperator::Or,
+}
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "fn" => Token::Fn,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "for" => Token::For,
+        "while" => Token::While,
+        "break" => Token::Break,
+        "continue" => Token::Continue,
+        "in" => Token::In,
+        "let" => Token::Let,
+        "var" => Token::Var,
+        "bool" => Token::Bool,
+        "int" => Token::Int,
+        "float" => Token::Float,
+        "string" => Token::String,
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Asterisk,
+        "/" => Token::Slash,
+        "%" => Token::Modulus,
+        "<" => Token::Less,
+        "<=" => Token::LessEqual,
+        ">" => Token::Greater,
+        ">=" => Token::GreaterEqual,
+        "==" => Token::EqualEqual,
+        "!=" => Token::NotEqual,
+        "&&" => Token::LogicalAnd,
+        "||" => Token::LogicalOr,
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+        "{" => Token::LBrace,
+        "}" => Token::RBrace,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
+        ":" => Token::Colon,
+        ";" => Token::SemiColon,
+        "=" => Token::Equal,
+        "," => Token::Comma,
+        "->" => Token::Arrow,
+        "." => Token::Dot,
+        "#" => Token::Hash,
+        "&" => Token::Ampersand,
+        "|" => Token::Pipe,
+        "!" => Token::ExclamationMark,
+        "?" => Token::QuestionMark,
+
+        "identifier" => Token::Identifier(<String>),
+        "boolLit" => Token::BoolLit(<bool>),
+        "stringLit" => Token::StrLit(<String>),
+        "intLit" => Token::IntLit(<i64>),
+        "floatLit" => Token::FloatLit(<OrderedFloat<f64>>),
+        "commandLit" => Token::CommandLit(<String>),
+        "error" => Token::Error
+    }
+}
