@@ -24,25 +24,28 @@ pub Literal: ast::Literal = {
 pub Expr: Box<ast::Expr> = {
     #[precedence(level="1")]
     <t:Term> => t,
+    <op:UnaryOperator> <e:Expr> => {
+        Box::new(ast::Expr::UnOp(op, e))
+    },
 
     #[precedence(level="2")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecTwoOp> <rhs:Term> => {
+    <lhs:Expr> <op:PrecTwoOp> <rhs:Expr> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="3")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecThreeOp> <rhs:Term> => {
+    <lhs:Expr> <op:PrecThreeOp> <rhs:Expr> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="4")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecFourOp> <rhs:Term> => {
+    <lhs:Expr> <op:PrecFourOp> <rhs:Expr> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="5")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecFiveOp> <rhs:Term> => {
+    <lhs:Expr> <op:PrecFiveOp> <rhs:Expr> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="6")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecSixOp> <rhs:Term> => {
+    <lhs:Expr> <op:PrecSixOp> <rhs:Expr> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
 }
@@ -50,10 +53,6 @@ pub Expr: Box<ast::Expr> = {
 pub Term: Box<ast::Expr> = {
     Literal => Box::new(ast::Expr::Literal(<>)),
     "identifier" => Box::new(ast::Expr::Identifier(<>.into())),
-    // TODO: fix unary operator
-    // <op:UnaryOperator> <e:Expr> => {
-    //     Box::new(ast::Expr::UnaryOperator(op, e)),
-    // }
     "(" <e:Expr> ")" => e,
 }
 
