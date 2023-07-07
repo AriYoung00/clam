@@ -92,75 +92,75 @@ mod lalrpop {
         assert_eq!(expr, b(Identifier("qwertyuiop".into())));
     }
 
-//    #[test]
-//    fn test_block() {
-//        use Expr::{Block, BinOp, Literal};
-//        use self::Literal::Int;
-//        use BinaryOperator::{Plus, Times};
-//
-//        let expr = plex("
-//{
-//    a = b;
-//    b = 1 * 1 + 3 * 4;
-//}     
-//        ").unwrap();
-//        let res = b(
-//            Block(vec![
-//                Statement::Assign(
-//                    Identifier("a".into()),
-//                    Expr::Identifier("b".into())
-//                ),
-//                Statement::Assign(
-//                    Identifier("b".into()),
-//                    BinOp(
-//                        Plus, 
-//                        b(BinOp(Times, b(Literal(Int(1))), b(Literal(Int(1))))),
-//                        b(BinOp(Times, b(Literal(Int(3))), b(Literal(Int(4)))))
-//                    )
-//                ),
-//            ])
-//        );
-//
-//        assert_eq!(expr, res);
-//    }
-//
-//    #[test]
-//    fn test_simple_conditional() {
-//        use Expr::{Conditional, Literal};
-//        use self::Literal::Bool;
-//
-//        let expr = plex("if true { a = b }").unwrap();
-//        assert_eq!(expr, b(
-//            Conditional(
-//                b(Literal(Bool(true))),
-//                Block::new(vec![
-//                    Statement::Assign(
-//                        Identifier("a".into()), 
-//                        Expr::Identifier("b".into())
-//                    )
-//                ])
-//            )
-//        ))
-//    }
-//
-//    #[test]
-//    fn test_simple_while_loop() {
-//        use Expr::WhileLoop;
-//        use self::Literal::Bool;
-//
-//        let expr = plex("while false { a = b }").unwrap();
-//        assert_eq!(expr, b(
-//            WhileLoop(
-//                b(Literal(Bool(false))),
-//                Block::new(vec![
-//                    Statement::Assign(
-//                        Identifier("a".into()), 
-//                        Expr::Identifier("b".into())
-//                    )
-//                ])
-//            )
-//        ))
-//    }
+    #[test]
+    fn test_block() {
+        use Expr::{Block, BinOp, Literal};
+        use self::Literal::Int;
+        use BinaryOperator::{Plus, Times};
+
+        let expr = plex("
+{
+    a = b;
+    b = 1 * 1 + 3 * 4;
+}     
+        ").unwrap();
+        let res = b(
+            Block(vec![
+                Statement::Assign(
+                    Identifier("a".into()),
+                    b(Expr::Identifier("b".into()))
+                ),
+                Statement::Assign(
+                    Identifier("b".into()),
+                    b(BinOp(
+                        Plus, 
+                        b(BinOp(Times, b(Literal(Int(1))), b(Literal(Int(1))))),
+                        b(BinOp(Times, b(Literal(Int(3))), b(Literal(Int(4)))))
+                    ))
+                ),
+            ].into()
+        ));
+
+        assert_eq!(expr, res);
+    }
+
+    #[test]
+    fn test_simple_conditional() {
+        use Expr::{Conditional, Literal};
+        use self::Literal::Bool;
+
+        let expr = plex("if true { a = b }").unwrap();
+        assert_eq!(expr, b(
+            Conditional(self::Conditional::new(
+                b(Literal(Bool(true))),
+                Block::new(vec![
+                    Statement::Assign(
+                        Identifier("a".into()), 
+                        b(Expr::Identifier("b".into()))
+                    )
+                ])
+            )
+        )))
+    }
+
+    #[test]
+    fn test_simple_while_loop() {
+        use Expr::WhileLoop;
+        use self::Literal::Bool;
+
+        let expr = plex("while false { a = b }").unwrap();
+        assert_eq!(expr, b(
+            WhileLoop(self::WhileLoop::new(
+                b(Expr::Literal(Bool(false))),
+                Block::new(vec![
+                    Statement::Assign(
+                        Identifier("a".into()), 
+                        b(Expr::Identifier("b".into()))
+                    )
+                ])
+            )
+        )))
+    }
 }
 
 /*

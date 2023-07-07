@@ -60,11 +60,12 @@ pub LetAssign: Box<ast::Expr> = "=" <e:Expr> => e;
 pub Let: ast::Statement = "let" <Identifier> <LetType?> <LetAssign?>
         => ast::Statement::Let(<>);
 
-// pub Assign: ast::Statement => {}
-// pub Break: ast::Statement => {}
+pub Assign: ast::Statement = <Identifier> "=" <Expr> 
+    => ast::Statement::Assign(<>);
 
 pub Statement: ast::Statement = {
-    <FnDef>, <Let>,//  Assign, Break,
+    <FnDef>, <Let>, <Assign>,
+    "break" => ast::Statement::Break,
     <Expr> => ast::Statement::Expr(<>),
 }
 
@@ -78,6 +79,14 @@ pub Block: ast::Block = "{" <mut stmts:StatementSemi*> <last:Statement?> "}"
         },
         None => stmts
     });
+
+
+pub WhileLoop: ast::WhileLoop = "while" <Expr> <Block>
+    => ast::WhileLoop::new(<>);
+
+pub Conditional: ast::Conditional = "if" <Expr> <Block>
+    => ast::Conditional::new(<>);
+
 
 pub Literal: ast::Literal = {
     "intLit" => ast::Literal::Int(<>),
@@ -117,7 +126,10 @@ pub Expr: Box<ast::Expr> = {
 }
 
 pub Term: Box<ast::Expr> = {
+    Block => Box::new(ast::Expr::Block(<>)),
     Literal => Box::new(ast::Expr::Literal(<>)),
+    Conditional => Box::new(ast::Expr::Conditional(<>)),
+    WhileLoop => Box::new(ast::Expr::WhileLoop(<>)),
     "identifier" => Box::new(ast::Expr::Identifier(<>.into())),
     "(" <e:Expr> ")" => e,
 }

@@ -1,4 +1,4 @@
-use derive_more::From;
+use derive_more::{From, Constructor};
 use ordered_float::OrderedFloat;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,14 +49,13 @@ pub enum BinaryOperator {
 #[from(forward)]
 pub struct Identifier(pub String);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Block {
-    pub statements: Vec<Statement>
-}
+#[derive(Clone, Debug, PartialEq, Eq, From)]
+#[from(forward)]
+pub struct Block(pub Vec<Statement>);
 
 impl Block {
     pub fn new(statements: Vec<Statement>) -> Self {
-        Self{ statements }
+        Self(statements)
     }
 }
 
@@ -70,19 +69,19 @@ pub enum Type {
     Name(Identifier),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct Conditional {
     pub cond: Box<Expr>,
     pub body: Block,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct WhileLoop {
     pub cond: Box<Expr>,
     pub body: Block,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct ForLoop {
     pub var: Identifier,
     pub iter: Box<Expr>,
@@ -98,7 +97,7 @@ pub enum Statement {
         body: Expr,
     },
     Let(Identifier, Option<Type>, Option<Box<Expr>>),
-    Assign(Identifier, Expr),
+    Assign(Identifier, Box<Expr>),
     Expr(Box<Expr>),
     Break,
 }
@@ -110,9 +109,9 @@ pub enum Expr {
     UnOp(UnaryOperator, Box<Expr>),
     Identifier(Identifier),
     FnCall(Identifier, Vec<Expr>),
-    Block(Vec<Statement>),
-    Conditional(Box<Expr>, Block),
-    WhileLoop(Box<Expr>, Block),
-    ForLoop(Identifier, Box<Expr>, Block),
+    Block(Block),
+    Conditional(Conditional),
+    WhileLoop(WhileLoop),
+    ForLoop(ForLoop),
 }
 
