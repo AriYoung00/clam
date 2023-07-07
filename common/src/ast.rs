@@ -1,5 +1,6 @@
 use derive_more::{From, Constructor};
 use ordered_float::OrderedFloat;
+use either::Either;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Primitive {
@@ -59,8 +60,12 @@ impl Block {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct FnDef {
+    pub name: Identifier,
+    pub param_list: Vec<(Identifier, Option<Type>)>,
+    pub ret_type: Option<Type>,
+    pub body: Box<Expr>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -90,12 +95,7 @@ pub struct ForLoop {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
-    FnDef {
-        name: Identifier,
-        param_list: Vec<(Identifier, Option<Type>)>,
-        ret_type: Option<Type>,
-        body: Expr,
-    },
+    FnDef(FnDef),
     Let(Identifier, Option<Type>, Option<Box<Expr>>),
     Assign(Identifier, Box<Expr>),
     Expr(Box<Expr>),
@@ -115,3 +115,12 @@ pub enum Expr {
     ForLoop(ForLoop),
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct StructDef {
+    name: Identifier,
+    fields: Vec<(Identifier, Option<Type>)>,
+}
+
+// pub struct Mod(pub Vec<Either<FnDef, StructDef>>);
+pub struct Mod(pub Vec<FnDef>);

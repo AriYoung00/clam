@@ -45,11 +45,10 @@ pub Param: (ast::Identifier, Option<ast::Type>) =
 pub RetType: ast::Type =
     "->" <Type> => <>;
 
-pub FnDef: ast::Statement = {
-    "fn" <name:Identifier>  "(" <params:Comma<Param>> ")" 
-    <ret_type:RetType?> <body:Expr>
-        => ast::Statement::FnDef{name, param_list: params, ret_type, 
-                                 body: *body}
+pub FnDef: ast::FnDef = {
+    "fn" <Identifier>  "(" <Comma<Param>> ")" 
+    <RetType?> <Expr>
+        => ast::FnDef::new(<>)
 }
 
 pub LetType: ast::Type = {
@@ -64,7 +63,8 @@ pub Assign: ast::Statement = <Identifier> "=" <Expr>
     => ast::Statement::Assign(<>);
 
 pub Statement: ast::Statement = {
-    <FnDef>, <Let>, <Assign>,
+    <Let>, <Assign>,
+    <FnDef> => ast::Statement::FnDef(<>),
     "break" => ast::Statement::Break,
     <Expr> => ast::Statement::Expr(<>),
 }
@@ -125,12 +125,15 @@ pub Expr: Box<ast::Expr> = {
     },
 }
 
+
 pub Term: Box<ast::Expr> = {
     Block => Box::new(ast::Expr::Block(<>)),
     Literal => Box::new(ast::Expr::Literal(<>)),
     Conditional => Box::new(ast::Expr::Conditional(<>)),
     WhileLoop => Box::new(ast::Expr::WhileLoop(<>)),
-    "identifier" => Box::new(ast::Expr::Identifier(<>.into())),
+    Identifier => Box::new(ast::Expr::Identifier(<>)),
+    <Identifier> "(" <Comma<Expr>> ")" 
+        => Box::new(ast::Expr::FnCall(<>.into_iter().map(|b| *b).collect())),
     "(" <e:Expr> ")" => e,
 }
 
@@ -173,6 +176,9 @@ pub PrecSevenOp: BinaryOperator = {
     "&&" => BinaryOperator::And,
     "||" => BinaryOperator::Or,
 }
+
+pub Module: ast::Mod = FnDef+
+    => ast::Mod(<>);
 
 extern {
     type Location = usize;

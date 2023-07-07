@@ -168,84 +168,83 @@ mod lalrpop {
         )))
     }
 
-//    #[test]
-//    fn test_simple_fn_call() {
-//        use Expr::FnCall;
-//
-//        let expr = plex("f(a, b)").unwrap();
-//        assert_eq!(expr, b(FnCall("f".into(), vec![Expr::Identifier("a".into()), Expr::Identifier("b".into())])));
-//
-//        let expr = plex("f(-1, b)").unwrap();
-//        assert_eq!(expr, b(FnCall(
-//            "f".into(), 
-//            vec![
-//                Expr::UnOp(UnaryOperator::Negate, Box::new(Expr::Literal(Literal::Int(1)))), 
-//                Expr::Identifier("b".into())
-//            ]
-//        )));
-//    }
+    #[test]
+    fn test_simple_fn_call() {
+        use Expr::FnCall;
+
+        let expr = plex("f(a, b)").unwrap();
+        assert_eq!(expr, b(FnCall("f".into(), vec![Expr::Identifier("a".into()), Expr::Identifier("b".into())])));
+
+        let expr = plex("f(-1, b)").unwrap();
+        assert_eq!(expr, b(FnCall(
+            "f".into(), 
+            vec![
+                Expr::UnOp(UnaryOperator::Negate, Box::new(Expr::Literal(Literal::Int(1)))), 
+                Expr::Identifier("b".into())
+            ]
+        )));
+    }
 
     #[test]
     fn test_simple_fn_def() {
-        use Statement::FnDef;
 
         let stmt = pl_stmt("
 fn thing(a, b: int)
     a
         ").unwrap();
-        assert_eq!(stmt, FnDef{
+        assert_eq!(stmt, Statement::FnDef(FnDef{
             name: Identifier("thing".into()),
             param_list: vec![
                 (Identifier("a".into()), None), 
                 (Identifier("b".into()), Some(Type::Primitive(Primitive::Int)))
             ],
             ret_type: None,
-            body: Expr::Identifier("a".into())
-        });
+            body: b(Expr::Identifier("a".into()))
+        }));
 
         let stmt = pl_stmt("
 fn thing(a, b: int) -> bool
-    c == d
+    a == b
         ").unwrap();
-        assert_eq!(stmt, FnDef{
+        assert_eq!(stmt, Statement::FnDef(FnDef{
             name: Identifier("thing".into()),
             param_list: vec![
                 (Identifier("a".into()), None), 
                 (Identifier("b".into()), Some(Type::Primitive(Primitive::Int)))
             ],
             ret_type: Some(Type::Primitive(Primitive::Bool)),
-            body: Expr::BinOp(
+            body: b(Expr::BinOp(
                 BinaryOperator::Eq,
-                b(Expr::Identifier("c".into())),
-                b(Expr::Identifier("d".into()))
-            )
-        });
+                b(Expr::Identifier("a".into())),
+                b(Expr::Identifier("b".into()))
+            ))
+        }));
 
-//        let stmt = pl_stmt("
-//fn thing(a, b: int) -> bool {
-//    a = b;
-//    a = 1 + 1
-//}
-//        ").unwrap();
-//        assert_eq!(stmt, FnDef{
-//            name: Identifier("thing".into()),
-//            param_list: vec![
-//                (Identifier("a".into()), None), 
-//                (Identifier("b".into()), Some(Type::Primitive(Primitive::Bool)))
-//            ],
-//            ret_type: Some(Type::Primitive(Primitive::Bool)),
-//            body: Expr::Block(Block::new(vec![
-//                Statement::Assign(Identifier("a".into()), b(Expr::Identifier("b".into()))),
-//                Statement::Assign(
-//                    Identifier("a".into()), 
-//                    b(Expr::BinOp(
-//                        BinaryOperator::Plus,
-//                        b(Expr::Literal(Literal::Int(1))),
-//                        b(Expr::Literal(Literal::Int(1)))
-//                    ))
-//                )
-//            ]))
-//        });
+        let stmt = pl_stmt("
+fn thing(a, b: int) -> bool {
+    a = b;
+    a = 1 + 1
+}
+        ").unwrap();
+        assert_eq!(stmt, Statement::FnDef(FnDef{
+            name: Identifier("thing".into()),
+            param_list: vec![
+                (Identifier("a".into()), None), 
+                (Identifier("b".into()), Some(Type::Primitive(Primitive::Int)))
+            ],
+            ret_type: Some(Type::Primitive(Primitive::Bool)),
+            body: b(Expr::Block(Block::new(vec![
+                Statement::Assign(Identifier("a".into()), b(Expr::Identifier("b".into()))),
+                Statement::Assign(
+                    Identifier("a".into()), 
+                    b(Expr::BinOp(
+                        BinaryOperator::Plus,
+                        b(Expr::Literal(Literal::Int(1))),
+                        b(Expr::Literal(Literal::Int(1)))
+                    ))
+                )
+            ])))
+        }));
     }
 
     #[test]

@@ -98,6 +98,7 @@ name = "clam_common"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "either",
  "ordered-float",
 ]
 
@@ -107,6 +108,7 @@ version = "0.1.0"
 dependencies = [
  "clam_common",
  "criterion",
+ "either",
  "lalrpop",
  "lalrpop-util",
  "logos",

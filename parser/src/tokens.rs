@@ -3,6 +3,8 @@ use ordered_float::OrderedFloat;
 
 #[derive(Logos, Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    #[token("struct")]
+    Struct,
     #[token("fn")]
     Fn,
     #[token("if")]
