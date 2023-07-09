@@ -51,6 +51,9 @@ pub FnDef: ast::FnDef = {
         => ast::FnDef::new(<>)
 }
 
+pub StructDef: ast::StructDef = "struct" <Identifier> "{" <Comma<Param>> "}"
+        => ast::StructDef::new(<>);
+
 pub LetType: ast::Type = {
     ":" <Type> => <>
 }
@@ -123,6 +126,10 @@ pub Expr: Box<ast::Expr> = {
     <lhs:Expr> <op:PrecSixOp> <rhs:Expr> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
+    // lambda def
+    #[precedence(level="7")]
+    // "|" <Comma<Param>> "|" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
+    "bslash" <Comma<Param>> "=>" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
 }
 
 
@@ -132,6 +139,7 @@ pub Term: Box<ast::Expr> = {
     Conditional => Box::new(ast::Expr::Conditional(<>)),
     WhileLoop => Box::new(ast::Expr::WhileLoop(<>)),
     Identifier => Box::new(ast::Expr::Identifier(<>)),
+    // function call
     <Identifier> "(" <Comma<Expr>> ")" 
         => Box::new(ast::Expr::FnCall(<>.into_iter().map(|b| *b).collect())),
     "(" <e:Expr> ")" => e,
@@ -186,6 +194,7 @@ extern {
 
     enum Token {
         "fn" => Token::Fn,
+        "struct" => Token::Struct,
         "if" => Token::If,
         "else" => Token::Else,
         "for" => Token::For,
@@ -224,12 +233,14 @@ extern {
         "=" => Token::Equal,
         "," => Token::Comma,
         "->" => Token::Arrow,
+        "=>" => Token::ThiccArrow,
         "." => Token::Dot,
         "#" => Token::Hash,
         "&" => Token::Ampersand,
         "|" => Token::Pipe,
         "!" => Token::ExclamationMark,
         "?" => Token::QuestionMark,
+        "bslash" => Token::Bslash,
 
         "identifier" => Token::Identifier(<String>),
         "boolLit" => Token::BoolLit(<bool>),

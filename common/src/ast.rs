@@ -109,6 +109,7 @@ pub enum Expr {
     UnOp(UnaryOperator, Box<Expr>),
     Identifier(Identifier),
     FnCall(Identifier, Vec<Expr>),
+    LambdaDef(Vec<(Identifier, Option<Type>)>, Box<Expr>),
     Block(Block),
     Conditional(Conditional),
     WhileLoop(WhileLoop),

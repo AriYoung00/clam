@@ -268,6 +268,25 @@ fn thing(a, b: int) -> bool {
         let stmt = pl_stmt("let thing = true").unwrap();
         assert_eq!(stmt, Let("thing".into(), None, Some(b(Expr::Literal(Literal::Bool(true))))));
     }
+
+    #[test]
+    fn test_simple_lambda_def() {
+        use Expr::LambdaDef;
+
+        // let expr = plex("|a, b: int| a + b").unwrap();
+        let expr = plex(r"\ a, b: int => a + b").unwrap();
+        assert_eq!(expr, b(LambdaDef(
+            vec![
+                (Identifier("a".into()), None), 
+                (Identifier("b".into()), Some(Type::Primitive(Primitive::Int)))
+            ],
+            b(Expr::BinOp(
+                BinaryOperator::Plus,
+                b(Expr::Identifier("a".into())),
+                b(Expr::Identifier("b".into()))
+            ))
+        )));
+    }
 }
 
 /*

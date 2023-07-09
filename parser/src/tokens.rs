@@ -89,6 +89,8 @@ pub enum Token {
     Comma,
     #[token("->")]
     Arrow,
+    #[token("=>")]
+    ThiccArrow,
     #[token(".")]
     Dot,
     #[token("#")]
@@ -101,6 +103,8 @@ pub enum Token {
     QuestionMark,
     #[token("|")]
     Pipe,
+    #[token("\\")]
+    Bslash,
 
     #[regex("true|false", |tok| tok.slice().parse())]
     BoolLit(bool),
