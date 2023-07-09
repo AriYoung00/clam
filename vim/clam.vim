@@ -21,6 +21,9 @@ syn match myscriptSymbol "->\|=>\|?\|.\{-}"
 " Comments
 syn match myscriptComment "//.*" contains=ALLBUT,myscriptKeyword,myscriptType,myscriptBoolean,myscriptIdentifier,myscriptSymbol,myscriptNumber,@Spell
 
+" Integral literals
+syn match myscriptNumber "\d\+\|\d\+\.\d\*"
+
 " C-like string syntax
 syn region myscriptString start=/"/ end=/"/
 
@@ -28,11 +31,8 @@ syn region myscriptString start=/"/ end=/"/
 syn include @Bash syntax/sh.vim
 
 " Define a region for Bash code blocks
-syn region bashCodeBlock start=/```/ end=/```/ contains=@Bash
-syn region bashCodeSnip start=/`/ end=/`/ " contains=@Bash
-
-" Integral literals
-syn match myscriptNumber "\d\+\|\d\+\.\d\*"
+syn region bashCodeBlock start=/```/ end=/```/ contains=@Bash keepend
+syn region bashCodeSnip start=/`/ end=/`/ contains=@Bash keepend
 
 " Linking
 hi def link myscriptKeyword Keyword
@@ -41,7 +41,7 @@ hi def link myscriptBoolean Boolean
 hi def link myscriptIdentifier Identifier
 hi def link myscriptSymbol SpecialChar
 hi def link myscriptString String
-hi def link bashCodeSnip String
+" hi def link bashCodeSnip String
 hi def link myscriptNumber Number
 hi def link myscriptComment Comment
 
