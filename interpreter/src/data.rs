@@ -11,7 +11,13 @@ use crate::Result;
 
 pub enum ErrorSource {
     MismatchedTypes,
-    InvalidBinOp,
+    DivisionByZero,
+}
+
+impl ErrorSource {
+    pub fn empty_loc<T>(self) -> Result<T> {
+        Err(ClamRuntimeError { loc: (0, 0), src: self })
+    }
 }
 
 #[allow(dead_code)]
