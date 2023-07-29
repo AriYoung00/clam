@@ -1,4 +1,5 @@
 use logos::{Logos, SpannedIter};
+use clam_common::ast::SpannedRes;
 use crate::Token;
 
 #[derive(Debug)]
@@ -18,9 +19,8 @@ impl<'input> Lexer<'input> {
     }
 }
 
-pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 impl<'input> Iterator for Lexer<'input> {
-    type Item = Spanned<Token, usize, LexicalError>;
+    type Item = SpannedRes<Token, usize, LexicalError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.token_stream.next().map(|(token, span)| {

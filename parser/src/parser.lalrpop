@@ -23,6 +23,8 @@ Comma<T>: Vec<T> = { // (1)
     }
 };
 
+Spanned<T>: ast::Span<T> = <@L> <T> <@R> => (<>);
+
 pub Identifier: ast::Identifier = "identifier" => <>.into();
 
 pub Primitive: ast::Primitive = {
@@ -39,42 +41,41 @@ pub Type: ast::Type = {
 }
 
 
-pub Param: (ast::Identifier, Option<ast::Type>) = 
-    <name:Identifier> ":"? <tname:Type?> => (<>);
+pub Param: (ast::Span<ast::Identifier>, Option<ast::Span<ast::Type>>) = 
+    <name:Spanned<Identifier>> ":"? <tname:Spanned<Type>?> => (<>);
 
-pub RetType: ast::Type =
-    "->" <Type> => <>;
+pub RetType: ast::Span<ast::Type> = "->" <Spanned<Type>> => <>;
 
 pub FnDef: ast::FnDef = {
-    "fn" <Identifier>  "(" <Comma<Param>> ")" 
-    <RetType?> <Expr>
+    "fn" <Spanned<Identifier>>  "(" <Comma<Param>> ")" 
+    <RetType?> <Spanned<Expr>>
         => ast::FnDef::new(<>)
 }
 
-pub StructDef: ast::StructDef = "struct" <Identifier> "{" <Comma<Param>> "}"
+pub StructDef: ast::StructDef = "struct" <Spanned<Identifier>> "{" <Comma<Param>> "}"
         => ast::StructDef::new(<>);
 
-pub LetType: ast::Type = {
-    ":" <Type> => <>
+pub LetType: ast::Span<ast::Type> = {
+    ":" <Spanned<Type>> => <>
 }
 
-pub LetAssign: Box<ast::Expr> = "=" <e:Expr> => e;
-pub Let: ast::Statement = "let" <Identifier> <LetType?> <LetAssign?>
+pub LetAssign: ast::Span<Box<ast::Expr>> = "=" <Spanned<Expr>> => <>;
+pub Let: ast::Statement = "let" <Spanned<Identifier>> <LetType?> <LetAssign?>
         => ast::Statement::Let(<>);
 
-pub Assign: ast::Statement = <Identifier> "=" <Expr> 
+pub Assign: ast::Statement = <Spanned<Identifier>> "=" <Spanned<Expr>> 
     => ast::Statement::Assign(<>);
 
 pub Statement: ast::Statement = {
     <Let>, <Assign>,
     <FnDef> => ast::Statement::FnDef(<>),
     "break" => ast::Statement::Break,
-    <Expr> => ast::Statement::Expr(<>),
+    <Spanned<Expr>> => ast::Statement::Expr(<>),
 }
 
 StatementSemi: ast::Statement = <Statement> ";";
 
-pub Block: ast::Block = "{" <mut stmts:StatementSemi*> <last:Statement?> "}" 
+pub Block: ast::Block = "{" <mut stmts:Spanned<StatementSemi>*> <last:Spanned<Statement>?> "}" 
     => ast::Block::new(match last {
         Some(s) => {
             stmts.push(s);
@@ -84,10 +85,10 @@ pub Block: ast::Block = "{" <mut stmts:StatementSemi*> <last:Statement?> "}"
     });
 
 
-pub WhileLoop: ast::WhileLoop = "while" <Expr> <Block>
+pub WhileLoop: ast::WhileLoop = "while" <Spanned<Expr>> <Block>
     => ast::WhileLoop::new(<>);
 
-pub Conditional: ast::Conditional = "if" <Expr> <Block>
+pub Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block>
     => ast::Conditional::new(<>);
 
 
@@ -101,35 +102,37 @@ pub Literal: ast::Literal = {
 
 pub Expr: Box<ast::Expr> = {
     #[precedence(level="1")]
-    <t:Term> => t,
-    <op:UnaryOperator> <e:Expr> => {
-        Box::new(ast::Expr::UnOp(op, e))
+    <Term> => <>,
+
+    <UnaryOperator> <Spanned<Expr>> => {
+        Box::new(ast::Expr::UnOp(<>))
     },
 
     #[precedence(level="2")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecTwoOp> <rhs:Expr> => {
+    <lhs:Spanned<Expr>> <op:PrecTwoOp> <rhs:Spanned<Expr>> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
+
     #[precedence(level="3")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecThreeOp> <rhs:Expr> => {
+    <lhs:Spanned<Expr>> <op:PrecThreeOp> <rhs:Spanned<Expr>> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="4")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecFourOp> <rhs:Expr> => {
+    <lhs:Spanned<Expr>> <op:PrecFourOp> <rhs:Spanned<Expr>> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="5")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecFiveOp> <rhs:Expr> => {
+    <lhs:Spanned<Expr>> <op:PrecFiveOp> <rhs:Spanned<Expr>> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     #[precedence(level="6")] #[assoc(side="left")]
-    <lhs:Expr> <op:PrecSixOp> <rhs:Expr> => {
+    <lhs:Spanned<Expr>> <op:PrecSixOp> <rhs:Spanned<Expr>> => {
         Box::new(ast::Expr::BinOp(op, lhs, rhs))
     },
     // lambda def
     #[precedence(level="7")]
     // "|" <Comma<Param>> "|" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
-    "bslash" <Comma<Param>> "=>" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
+    "bslash" <Comma<Param>> "=>" <Spanned<Expr>> => Box::new(ast::Expr::LambdaDef(<>)),
 }
 
 
@@ -140,8 +143,8 @@ pub Term: Box<ast::Expr> = {
     WhileLoop => Box::new(ast::Expr::WhileLoop(<>)),
     Identifier => Box::new(ast::Expr::Identifier(<>)),
     // function call
-    <Identifier> "(" <Comma<Expr>> ")" 
-        => Box::new(ast::Expr::FnCall(<>.into_iter().map(|b| *b).collect())),
+    <Spanned<Identifier>> "(" <Comma<Spanned<Expr>>> ")" 
+        => Box::new(ast::Expr::FnCall(<>.into_iter().map(|(a, b, c)| (a, *b, c)).collect())),
     "(" <e:Expr> ")" => e,
 }
 

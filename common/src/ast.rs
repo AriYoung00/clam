@@ -1,6 +1,9 @@
 use derive_more::{From, Constructor};
 use ordered_float::OrderedFloat;
-use either::Either;
+
+pub type SpannedRes<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
+pub type Spanned<T, Loc> = (Loc, T, Loc);
+pub type Span<T> = Spanned<T, usize>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Primitive {
@@ -46,26 +49,22 @@ pub enum BinaryOperator {
     BitOr,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, From)]
+#[derive(Hash, Clone, Debug, PartialEq, Eq, From)]
 #[from(forward)]
 pub struct Identifier(pub String);
 
-#[derive(Clone, Debug, PartialEq, Eq, From)]
+#[derive(Clone, Debug, PartialEq, Eq, From, Constructor)]
 #[from(forward)]
-pub struct Block(pub Vec<Statement>);
+pub struct Block(pub Vec<Span<Statement>>);
 
-impl Block {
-    pub fn new(statements: Vec<Statement>) -> Self {
-        Self(statements)
-    }
-}
+pub type Param = (Span<Identifier>, Option<Span<Type>>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct FnDef {
-    pub name: Identifier,
-    pub param_list: Vec<(Identifier, Option<Type>)>,
-    pub ret_type: Option<Type>,
-    pub body: Box<Expr>,
+    pub name: Span<Identifier>,
+    pub param_list: Vec<Param>,
+    pub ret_type: Option<Span<Type>>,
+    pub body: Span<Box<Expr>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -76,40 +75,41 @@ pub enum Type {
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct Conditional {
-    pub cond: Box<Expr>,
+    pub cond: Span<Box<Expr>>,
     pub body: Block,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct WhileLoop {
-    pub cond: Box<Expr>,
+    pub cond: Span<Box<Expr>>,
     pub body: Block,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct ForLoop {
-    pub var: Identifier,
-    pub iter: Box<Expr>,
+    pub var: Span<Identifier>,
+    pub iter: Span<Box<Expr>>,
     pub body: Block,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
     FnDef(FnDef),
-    Let(Identifier, Option<Type>, Option<Box<Expr>>),
-    Assign(Identifier, Box<Expr>),
-    Expr(Box<Expr>),
+    Let(Span<Identifier>, Option<Span<Type>>, Option<Span<Box<Expr>>>),
+    Assign(Span<Identifier>, Span<Box<Expr>>),
+    Expr(Span<Box<Expr>>),
     Break,
+    Return,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
     Literal(Literal),
-    BinOp(BinaryOperator, Box<Expr>, Box<Expr>),
-    UnOp(UnaryOperator, Box<Expr>),
+    BinOp(BinaryOperator, Span<Box<Expr>>, Span<Box<Expr>>),
+    UnOp(UnaryOperator, Span<Box<Expr>>),
     Identifier(Identifier),
-    FnCall(Identifier, Vec<Expr>),
-    LambdaDef(Vec<(Identifier, Option<Type>)>, Box<Expr>),
+    FnCall(Span<Identifier>, Vec<Span<Expr>>),
+    LambdaDef(Vec<Param>, Span<Box<Expr>>),
     Block(Block),
     Conditional(Conditional),
     WhileLoop(WhileLoop),
@@ -119,8 +119,8 @@ pub enum Expr {
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct StructDef {
-    name: Identifier,
-    fields: Vec<(Identifier, Option<Type>)>,
+    name: Span<Identifier>,
+    fields: Vec<(Span<Identifier>, Option<Span<Type>>)>,
 }
 
 // pub struct Mod(pub Vec<Either<FnDef, StructDef>>);
