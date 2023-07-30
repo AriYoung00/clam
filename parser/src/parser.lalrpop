@@ -60,14 +60,15 @@ pub LetType: ast::Span<ast::Type> = {
 }
 
 pub LetAssign: ast::Span<Box<ast::Expr>> = "=" <Spanned<Expr>> => <>;
-pub Let: ast::Statement = "let" <Spanned<Identifier>> <LetType?> <LetAssign?>
-        => ast::Statement::Let(<>);
+pub Let: ast::Let = "let" <Spanned<Identifier>> <LetType?> <LetAssign?>
+        => ast::Let::new(<>);
 
-pub Assign: ast::Statement = <Spanned<Identifier>> "=" <Spanned<Expr>> 
-    => ast::Statement::Assign(<>);
+pub Assign: ast::Assign = <Spanned<Identifier>> "=" <Spanned<Expr>>
+    => ast::Assign::new(<>);
 
 pub Statement: ast::Statement = {
-    <Let>, <Assign>,
+    <Let> => ast::Statement::Let(<>),
+    <Assign> => ast::Statement::Assign(<>),
     <FnDef> => ast::Statement::FnDef(<>),
     "break" => ast::Statement::Break,
     <Spanned<Expr>> => ast::Statement::Expr(<>),
@@ -105,34 +106,36 @@ pub Expr: Box<ast::Expr> = {
     <Term> => <>,
 
     <UnaryOperator> <Spanned<Expr>> => {
-        Box::new(ast::Expr::UnOp(<>))
+        Box::new(ast::Expr::UnOp(ast::UnOp::new(<>)))
     },
 
     #[precedence(level="2")] #[assoc(side="left")]
     <lhs:Spanned<Expr>> <op:PrecTwoOp> <rhs:Spanned<Expr>> => {
-        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
     },
 
     #[precedence(level="3")] #[assoc(side="left")]
     <lhs:Spanned<Expr>> <op:PrecThreeOp> <rhs:Spanned<Expr>> => {
-        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
     },
     #[precedence(level="4")] #[assoc(side="left")]
     <lhs:Spanned<Expr>> <op:PrecFourOp> <rhs:Spanned<Expr>> => {
-        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
     },
     #[precedence(level="5")] #[assoc(side="left")]
     <lhs:Spanned<Expr>> <op:PrecFiveOp> <rhs:Spanned<Expr>> => {
-        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
     },
     #[precedence(level="6")] #[assoc(side="left")]
     <lhs:Spanned<Expr>> <op:PrecSixOp> <rhs:Spanned<Expr>> => {
-        Box::new(ast::Expr::BinOp(op, lhs, rhs))
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
     },
     // lambda def
     #[precedence(level="7")]
     // "|" <Comma<Param>> "|" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
-    "bslash" <Comma<Param>> "=>" <Spanned<Expr>> => Box::new(ast::Expr::LambdaDef(<>)),
+    "bslash" <Comma<Param>> "=>" <Spanned<Expr>> => {
+        Box::new(ast::Expr::LambdaDef(ast::LambdaDef::new(<>)))
+    },
 }
 
 
@@ -144,7 +147,7 @@ pub Term: Box<ast::Expr> = {
     Identifier => Box::new(ast::Expr::Identifier(<>)),
     // function call
     <Spanned<Identifier>> "(" <Comma<Spanned<Expr>>> ")" 
-        => Box::new(ast::Expr::FnCall(<>.into_iter().map(|(a, b, c)| (a, *b, c)).collect())),
+        => Box::new(ast::Expr::FnCall(ast::FnCall::new(<>.into_iter().map(|(a, b, c)| (a, *b, c)).collect()))),
     "(" <e:Expr> ")" => e,
 }
 

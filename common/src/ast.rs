@@ -67,6 +67,19 @@ pub struct FnDef {
     pub body: Span<Box<Expr>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct Let {
+    pub id: Span<Identifier>,
+    pub r#type: Option<Span<Type>>,
+    pub expr: Option<Span<Box<Expr>>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct Assign {
+    pub id: Span<Identifier>,
+    pub expr: Span<Box<Expr>>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Primitive(Primitive),
@@ -92,30 +105,54 @@ pub struct ForLoop {
     pub body: Block,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct BinOp {
+    pub operator: BinaryOperator,
+    pub lhs: Span<Box<Expr>>,
+    pub rhs: Span<Box<Expr>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct UnOp {
+    pub operator: UnaryOperator,
+    pub operand: Span<Box<Expr>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct FnCall {
+    pub id: Span<Identifier>,
+    pub args: Vec<Span<Expr>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct LambdaDef {
+    pub params: Vec<Param>,
+    pub body: Span<Box<Expr>>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
     FnDef(FnDef),
-    Let(Span<Identifier>, Option<Span<Type>>, Option<Span<Box<Expr>>>),
-    Assign(Span<Identifier>, Span<Box<Expr>>),
+    Let(Let),
+    Assign(Assign),
     Expr(Span<Box<Expr>>),
     Break,
-    Return,
+    Return(Span<Box<Expr>>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
     Literal(Literal),
-    BinOp(BinaryOperator, Span<Box<Expr>>, Span<Box<Expr>>),
-    UnOp(UnaryOperator, Span<Box<Expr>>),
+    BinOp(BinOp),
+    UnOp(UnOp),
     Identifier(Identifier),
-    FnCall(Span<Identifier>, Vec<Span<Expr>>),
-    LambdaDef(Vec<Param>, Span<Box<Expr>>),
+    FnCall(FnCall),
+    LambdaDef(LambdaDef),
     Block(Block),
     Conditional(Conditional),
     WhileLoop(WhileLoop),
     ForLoop(ForLoop),
 }
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct StructDef {

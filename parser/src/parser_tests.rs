@@ -1,8 +1,4 @@
-use clam_common::ast::Expr;
-
 mod lalrpop {
-    use std::ops::DerefMut;
-
     use crate::lexer::*;
     use crate::tokens::*;
     use clam_common::ast::*;
@@ -49,9 +45,9 @@ mod lalrpop {
         o.map(strip_loc)
     }
 
-
     fn strip_stmt_loc((_, s, _): Span<Statement>) -> Span<Statement> {
         let strip_block_loc = |Block(stmts)| Block(stmts.into_iter().map(strip_stmt_loc).collect());
+
         let strip_fndef_loc = |FnDef { name, param_list, ret_type, body }| {
             let param_list = param_list.into_iter().map(|(id, t)|
                 (strip_loc(id), strip_option_loc(t)))
@@ -59,10 +55,25 @@ mod lalrpop {
             FnDef{ name: strip_loc(name), param_list, ret_type: strip_option_loc(ret_type), body: strip_expr_loc(body) }
         };
 
+        let strip_let_loc = |Let { id, r#type, expr}| {
+            Let {
+                id: strip_loc(id),
+                r#type: strip_option_loc(r#type),
+                expr: expr.map(strip_expr_loc)
+            }
+        };
+
+        let strip_assign_loc = |Assign { id, expr }| {
+            Assign {
+                id: strip_loc(id),
+                expr: strip_expr_loc(expr)
+            }
+        };
+
         match s {
             Statement::FnDef(f) => Statement::FnDef(strip_fndef_loc(f)),
-            Statement::Let(id, t, e) => Statement::Let(strip_loc(id), strip_option_loc(t), e.map(strip_expr_loc)),
-            Statement::Assign(id, e) => Statement::Assign(strip_loc(id), strip_expr_loc(e)),
+            Statement::Let(l) => Statement::Let(strip_let_loc(l)),
+            Statement::Assign(a) => Statement::Assign(strip_assign_loc(a)),
             Statement::Expr(e) => Statement::Expr(strip_expr_loc(e)),
             rest@_ => rest
         }.null_span()
@@ -71,19 +82,48 @@ mod lalrpop {
     fn strip_expr_loc(e: Span<Box<Expr>>) -> Span<Box<Expr>> {
         let (_, exp, _) = e;
 
-        let strip_args_loc = |args: Vec<(Span<Identifier>, Option<Span<Type>>)>|
-            args.into_iter().map(|((_, id, _), t)| {
+        let strip_params_loc = |params: Vec<Param>| {
+            params.into_iter().map(|((_, id, _), t)| {
                 ((0, id, 0), t.map(|(_, t, _)| (0, t, 0)))
-            }).collect();
+            }).collect()
+        };
+
+        let strip_binop_loc = |BinOp { operator, lhs, rhs }| {
+            BinOp {
+                operator,
+                lhs: strip_expr_loc(lhs),
+                rhs: strip_expr_loc(rhs),
+            }
+        };
+
+        let strip_unop_loc = |UnOp { operator, operand }| {
+            UnOp {
+                operator,
+                operand: strip_expr_loc(operand)
+            }
+        };
+
+        let strip_fncall_loc = |FnCall { id, args }| {
+            FnCall {
+                id: (0, id.1, 0),
+                args: args.into_iter().map(|(_, e, _)| strip_expr_loc((0, Box::new(e), 0)).deref_inner()).collect()
+            }
+        };
+
+        let strip_lambdadef_loc = |LambdaDef { params, body }| {
+            LambdaDef {
+                params: strip_params_loc(params),
+                body: strip_expr_loc(body)
+            }
+        };
 
         let strip_block_loc = |Block(stmts)| Block(stmts.into_iter().map(strip_stmt_loc).collect());
 
         let stripped = Box::new(match *exp {
-            Expr::BinOp(o, l, r) => Expr::BinOp(o, strip_expr_loc(l), strip_expr_loc(r)),
-            Expr::UnOp(o, r) => Expr::UnOp(o, strip_expr_loc(r)),
-            Expr::FnCall((_, id, _), exprs) => Expr::FnCall((0, id, 0), 
-                exprs.into_iter().map(|(_, e, _)| strip_expr_loc((0, Box::new(e), 0)).deref_inner()).collect()),
-            Expr::LambdaDef(args, body) => Expr::LambdaDef(strip_args_loc(args), strip_expr_loc(body)),
+            Expr::BinOp(b) => Expr::BinOp(strip_binop_loc(b)),
+            Expr::UnOp(u) => Expr::UnOp(strip_unop_loc(u)),
+            Expr::FnCall(f) => Expr::FnCall(strip_fncall_loc(f)),
+            Expr::LambdaDef(l) => Expr::LambdaDef(strip_lambdadef_loc(l)),
             Expr::Block(b) => Expr::Block(strip_block_loc(b)),
             Expr::Conditional(Conditional { cond, body }) => Expr::Conditional(Conditional::new(strip_expr_loc(cond), strip_block_loc(body))),
             Expr::WhileLoop(WhileLoop { cond, body }) => Expr::WhileLoop(WhileLoop::new(strip_expr_loc(cond), strip_block_loc(body))),
@@ -126,52 +166,53 @@ mod lalrpop {
     
     #[test]
     fn test_simple_binop() {
-        use Expr::BinOp;
         use BinaryOperator::{Plus, Times};
         use Expr::Literal;
         use self::Literal::Int;
 
         let expr = plex("5 + 5").unwrap();
         assert_eq!(expr, b(
-            BinOp(Plus, b(Literal(Int(5))), b(Literal(Int(5))))
+            Expr::BinOp(BinOp::new(Plus, b(Literal(Int(5))), b(Literal(Int(5)))))
         ));
 
         let expr = plex("5 + 5 * 3").unwrap();
         assert_eq!(expr, b(
-            BinOp(
+            Expr::BinOp(BinOp::new(
                 Plus, 
                 b(Literal(Int(5))), 
-                b(BinOp(Times, b(Literal(Int(5))), b(Literal(Int(3)))))
-            )
+                b(Expr::BinOp(BinOp::new(Times, b(Literal(Int(5))), b(Literal(Int(3))))))
+            ))
         ));
     }
 
     #[test]
     fn test_binop_with_unop() {
-        use Expr::{UnOp, BinOp, Literal};
         use self::Literal::Int;
         use BinaryOperator::Plus;
         use UnaryOperator::Negate;
 
         let expr = plex("5 + -1").unwrap();
         assert_eq!(expr, b(
-            BinOp(Plus, b(Literal(Int(5))), b(UnOp(Negate, b(Literal(Int(1))))))
+            Expr::BinOp(BinOp::new(
+                Plus,
+                b(Expr::Literal(Int(5))),
+                b(Expr::UnOp(UnOp::new(Negate, b(Expr::Literal(Int(1))))))
+            ))
         ));
     }
 
     #[test]
     fn test_binop_with_parens() {
-        use Expr::{BinOp, Literal};
         use self::Literal::Int;
         use BinaryOperator::{Plus, Times};
         
         let expr = plex("(1 + 1) * 3").unwrap();
         assert_eq!(expr, b(
-            BinOp(
+            Expr::BinOp(BinOp::new(
                 Times, 
-                b(BinOp(Plus, b(Literal(Int(1))), b(Literal(Int(1))))), 
-                b(Literal(Int(3)))
-            )
+                b(Expr::BinOp(BinOp::new(Plus, b(Expr::Literal(Int(1))), b(Expr::Literal(Int(1)))))),
+                b(Expr::Literal(Int(3)))
+            ))
         ))
     }
 
@@ -185,7 +226,6 @@ mod lalrpop {
 
     #[test]
     fn test_block() {
-        use Expr::{Block, BinOp, Literal};
         use self::Literal::Int;
         use BinaryOperator::{Plus, Times};
         use clam_common::ast;
@@ -197,19 +237,19 @@ mod lalrpop {
 }     
         ").unwrap();
         let res = b(
-            Block(ast::Block(vec![
-                Statement::Assign(
+            Expr::Block(ast::Block(vec![
+                Statement::Assign(Assign::new(
                     Identifier("a".into()).null_span(),
                     b(Expr::Identifier("b".into()))
-                ).null_span(),
-                Statement::Assign(
+                )).null_span(),
+                Statement::Assign(Assign::new(
                     Identifier("b".into()).null_span(),
-                    b(BinOp(
+                    b(Expr::BinOp(BinOp::new(
                         Plus, 
-                        b(BinOp(Times, b(Literal(Int(1))), b(Literal(Int(1))))),
-                        b(BinOp(Times, b(Literal(Int(3))), b(Literal(Int(4)))))
-                    ))
-                ).null_span(),
+                        b(Expr::BinOp(BinOp::new(Times, b(Expr::Literal(Int(1))), b(Expr::Literal(Int(1)))))),
+                        b(Expr::BinOp(BinOp::new(Times, b(Expr::Literal(Int(3))), b(Expr::Literal(Int(4))))))
+                    )))
+                )).null_span(),
             ])
         ));
 
@@ -226,10 +266,10 @@ mod lalrpop {
             Conditional(self::Conditional::new(
                 b(Literal(Bool(true))),
                 Block::new(vec![
-                    Statement::Assign(
+                    Statement::Assign(Assign::new(
                         Identifier("a".into()).null_span(), 
                         b(Expr::Identifier("b".into()))
-                    ).null_span()
+                    )).null_span()
                 ])
             )
         )))
@@ -245,10 +285,10 @@ mod lalrpop {
             WhileLoop(self::WhileLoop::new(
                 b(Expr::Literal(Bool(false))),
                 Block::new(vec![
-                    Statement::Assign(
+                    Statement::Assign(Assign::new(
                         Identifier("a".into()).null_span(), 
                         b(Expr::Identifier("b".into()))
-                    ).null_span()
+                    )).null_span()
                 ])
             )
         )))
@@ -256,21 +296,23 @@ mod lalrpop {
 
     #[test]
     fn test_simple_fn_call() {
-        use Expr::FnCall;
-
         let expr = plex("f(a, b)").unwrap();
         let id: Identifier = "f".into();
-        assert_eq!(expr, b(FnCall(id.null_span(), vec![Expr::Identifier("a".into()).null_span(), Expr::Identifier("b".into()).null_span()])));
+        assert_eq!(expr, b(Expr::FnCall(FnCall::new(
+            id.null_span(),
+            vec![Expr::Identifier("a".into()).null_span(),
+            Expr::Identifier("b".into()).null_span()]))
+        ));
 
         let expr = plex("f(-1, b)").unwrap();
         let id: Identifier = "f".into();
-        assert_eq!(expr, b(FnCall(
+        assert_eq!(expr, b(Expr::FnCall(FnCall::new(
             id.null_span(), 
             vec![
-                Expr::UnOp(UnaryOperator::Negate, b(Expr::Literal(Literal::Int(1)))).null_span(), 
+                Expr::UnOp(UnOp::new(UnaryOperator::Negate, b(Expr::Literal(Literal::Int(1))))).null_span(),
                 Expr::Identifier("b".into()).null_span()
             ]
-        )));
+        ))));
     }
 
     #[test]
@@ -301,11 +343,11 @@ fn thing(a, b: int) -> bool
                 (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int).null_span()))
             ],
             ret_type: Some(Type::Primitive(Primitive::Bool).null_span()),
-            body: b(Expr::BinOp(
+            body: b(Expr::BinOp(BinOp::new(
                 BinaryOperator::Eq,
                 b(Expr::Identifier("a".into())),
                 b(Expr::Identifier("b".into()))
-            ))
+            )))
         }));
 
         let stmt = pl_stmt("
@@ -322,15 +364,15 @@ fn thing(a, b: int) -> bool {
             ],
             ret_type: Some(Type::Primitive(Primitive::Bool).null_span()),
             body: b(Expr::Block(Block::new(vec![
-                Statement::Assign(Identifier("a".into()).null_span(), b(Expr::Identifier("b".into()))).null_span(),
-                Statement::Assign(
+                Statement::Assign(Assign::new(Identifier("a".into()).null_span(), b(Expr::Identifier("b".into())))).null_span(),
+                Statement::Assign(Assign::new(
                     Identifier("a".into()).null_span(), 
-                    b(Expr::BinOp(
+                    b(Expr::BinOp(BinOp::new(
                         BinaryOperator::Plus,
                         b(Expr::Literal(Literal::Int(1))),
                         b(Expr::Literal(Literal::Int(1)))
-                    ))
-                ).null_span()
+                    )))
+                )).null_span()
             ])))
         }));
     }
