@@ -1,68 +1,72 @@
 use crate::ast::*;
 
-type ResOpt<OutputType, ErrorType> = Result<Option<OutputType>, ErrorType>;
+pub type ResOpt<OutputType, ErrorType> = Result<Option<OutputType>, ErrorType>;
 
 pub trait AstVisitor<CtxType, ErrorType> {
     type OutputType;
 
-    fn visit_primitive(p: &Primitive, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn default() -> ResOpt<Self::OutputType, ErrorType> {
         Ok(None)
+    }
+
+    fn visit_primitive(p: &Primitive, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+        Self::default()
     }
 
     fn visit_literal(l: &Literal, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_identifier(i: &Identifier, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_fn_def(f: &FnDef, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_let(l: &Let, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_assign(a: &Assign, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_break(ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_block(b: &Block, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_bin_op(b: &BinOp, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_un_op(u: &UnOp, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_fn_call(f: &FnCall, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_lambda_def(l: &LambdaDef, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_conditional(c: &Conditional, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_while_loop(w: &WhileLoop, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_for_loop(f: &ForLoop, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
+        Self::default()
     }
 
     fn visit_statement(s: &Statement, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
