@@ -88,25 +88,25 @@ mod lalrpop {
             }).collect()
         };
 
-        let strip_binop_loc = |BinOp { operator, lhs, rhs }| {
+        let strip_binop_loc = |BinOp { op, lhs, rhs }| {
             BinOp {
-                operator,
+                op,
                 lhs: strip_expr_loc(lhs),
                 rhs: strip_expr_loc(rhs),
             }
         };
 
-        let strip_unop_loc = |UnOp { operator, operand }| {
+        let strip_unop_loc = |UnOp { op, rhs }| {
             UnOp {
-                operator,
-                operand: strip_expr_loc(operand)
+                op,
+                rhs: strip_expr_loc(rhs)
             }
         };
 
         let strip_fncall_loc = |FnCall { id, args }| {
             FnCall {
                 id: (0, id.1, 0),
-                args: args.into_iter().map(|(_, e, _)| strip_expr_loc((0, Box::new(e), 0)).deref_inner()).collect()
+                args: args.into_iter().map(strip_expr_loc).collect()
             }
         };
 
@@ -300,8 +300,8 @@ mod lalrpop {
         let id: Identifier = "f".into();
         assert_eq!(expr, b(Expr::FnCall(FnCall::new(
             id.null_span(),
-            vec![Expr::Identifier("a".into()).null_span(),
-            Expr::Identifier("b".into()).null_span()]))
+            vec![b(Expr::Identifier("a".into())),
+            b(Expr::Identifier("b".into()))]))
         ));
 
         let expr = plex("f(-1, b)").unwrap();
@@ -309,8 +309,8 @@ mod lalrpop {
         assert_eq!(expr, b(Expr::FnCall(FnCall::new(
             id.null_span(), 
             vec![
-                Expr::UnOp(UnOp::new(UnaryOperator::Negate, b(Expr::Literal(Literal::Int(1))))).null_span(),
-                Expr::Identifier("b".into()).null_span()
+                b(Expr::UnOp(UnOp::new(UnaryOperator::Negate, b(Expr::Literal(Literal::Int(1)))))),
+                b(Expr::Identifier("b".into()))
             ]
         ))));
     }
@@ -375,6 +375,17 @@ fn thing(a, b: int) -> bool {
                 )).null_span()
             ])))
         }));
+    }
+
+    #[test]
+    fn test_span() {
+        let expr = "if true { 5 + 5 }";
+        let res = parser::ExprParser::new()
+            .parse(Lexer::new(expr)).unwrap();
+        let tokens: Vec<_> = Lexer::new(expr).collect();
+        println!("tokens are {tokens:?}");
+        println!("res is {res:?}");
+
     }
 
 /*
