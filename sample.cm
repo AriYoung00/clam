@@ -41,12 +41,31 @@ fn test(i: int) -> int {
 let test = \a, b => a + b;
 let thing = 1.1 + 1.2;
 
-// if statement
+fn add_one(thing: int | float) -> int | float {
+    thing + 1
+}
+
+// if true statement
+// true
 if true {
   // do stuff
 }
 
 let test_command = `ls | grep 'hello there'`;
+
+fn print_string(s: string) {
+    println(s)
+}
+
+let thing: any = 1.25
+// let arg: string = thing.try_into()
+print_string(arg as string?)
+(arg as string?) === (arg.try_into()?)
+(arg as string!) === (arg.try_into().unwrap())
+
+let err = Err("hello");
+err! // panic the program
+err? // pass it up a level, but with same restrictions in usage as rust
 
 for item in ["hello", "how", "are", "you"] {
   println(item);
