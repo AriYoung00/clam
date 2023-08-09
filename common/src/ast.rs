@@ -84,6 +84,8 @@ pub struct Assign {
 pub enum Type {
     Primitive(Primitive),
     Name(Identifier),
+    Sum(Vec<Type>),
+    Any,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
@@ -107,21 +109,21 @@ pub struct ForLoop {
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct BinOp {
-    pub operator: BinaryOperator,
+    pub op: BinaryOperator,
     pub lhs: Span<Box<Expr>>,
     pub rhs: Span<Box<Expr>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct UnOp {
-    pub operator: UnaryOperator,
-    pub operand: Span<Box<Expr>>,
+    pub op: UnaryOperator,
+    pub rhs: Span<Box<Expr>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct FnCall {
     pub id: Span<Identifier>,
-    pub args: Vec<Span<Expr>>,
+    pub args: Vec<Span<Box<Expr>>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
