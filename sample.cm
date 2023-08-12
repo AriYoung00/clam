@@ -22,7 +22,7 @@ for i in {1..5}; do
   else
     echo "$i is odd"
   fi
-  
+ :q 
   # increment the counter variable
   ((count++))
 done
@@ -37,32 +37,47 @@ fn test(i: int) -> int {
   i + 1
 }
 
+// lambda function
+let test = \a, b => a + b;
+let thing = 1.1 + 1.2;
 
-let test = fn(i: int) -> int {
-  
+fn add_one(thing: int | float) -> int | float {
+    thing + 1
 }
 
-let test2 = fn(i) {
-  
-}
-
+// if true statement
+// true
 if true {
   // do stuff
 }
 
+let test_command = `ls | grep 'hello there'`;
+
+fn print_string(s: string) {
+    println(s)
+}
+
+let thing: any = 1.25
+// let arg: string = thing.try_into()
+print_string(arg as string?)
+(arg as string?) === (arg.try_into()?)
+(arg as string!) === (arg.try_into().unwrap())
+
+let err = Err("hello");
+err! // panic the program
+err? // pass it up a level, but with same restrictions in usage as rust
+
+for item in ["hello", "how", "are", "you"] {
+  println(item);
+}
+
 struct A {
-  s: string;
-  n: u32;
-
-  fn a(s: string, n: u32) {
-    // do stuff
-  }
-
-  const a = 
+  s: string,
+  n: int,
 }
 
 impl A {
-    fn a(s: string, n: u32) {
-        k
+    fn a(s: string, n: int) {
+        // do stuff
     }
 }

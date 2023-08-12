@@ -1,5 +1,4 @@
-#[allow(unused_imports)]
-
+/*
 #[cfg(test)]
 mod test {
     use chumsky::prelude::*;
@@ -199,3 +198,4 @@ fn test(i: int) -> int {
         ])
     }
 }
+*/

@@ -9,5 +9,6 @@ clam_common = { path = "common" }
 [workspace]
 members = [
     "parser",
-    "common"
+    "common",
+    "interpreter"
 ]

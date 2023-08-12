@@ -1,0 +1,253 @@
+// use clam_common::ast;
+// use clam_common::ast::BinaryOperator;
+// use crate::lexer::LexicalError;
+use clam_common::{
+    ast,
+    ast::{
+        BinaryOperator,
+    }
+};
+use ordered_float::OrderedFloat;
+use crate::lexer::LexicalError;
+use crate::Token;
+
+grammar;
+
+Comma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+Spanned<T>: ast::Span<T> = <@L> <T> <@R> => (<>);
+
+pub Identifier: ast::Identifier = "identifier" => <>.into();
+
+pub Primitive: ast::Primitive = {
+    "int"    => ast::Primitive::Int,
+    "float"  => ast::Primitive::Float,
+    "bool"   => ast::Primitive::Bool,
+    "string" => ast::Primitive::String,
+    "cmd"    => ast::Primitive::Command,
+}
+
+pub Type: ast::Type = {
+    Primitive  => ast::Type::Primitive(<>),
+    Identifier => ast::Type::Name(<>),
+}
+
+
+pub Param: (ast::Span<ast::Identifier>, Option<ast::Span<ast::Type>>) = 
+    <name:Spanned<Identifier>> ":"? <tname:Spanned<Type>?> => (<>);
+
+pub RetType: ast::Span<ast::Type> = "->" <Spanned<Type>> => <>;
+
+pub FnDef: ast::FnDef = {
+    "fn" <Spanned<Identifier>>  "(" <Comma<Param>> ")" 
+    <RetType?> <Spanned<Expr>>
+        => ast::FnDef::new(<>)
+}
+
+pub StructDef: ast::StructDef = "struct" <Spanned<Identifier>> "{" <Comma<Param>> "}"
+        => ast::StructDef::new(<>);
+
+pub LetType: ast::Span<ast::Type> = {
+    ":" <Spanned<Type>> => <>
+}
+
+pub LetAssign: ast::Span<Box<ast::Expr>> = "=" <Spanned<Expr>> => <>;
+pub Let: ast::Let = "let" <Spanned<Identifier>> <LetType?> <LetAssign?>
+        => ast::Let::new(<>);
+
+pub Assign: ast::Assign = <Spanned<Identifier>> "=" <Spanned<Expr>>
+    => ast::Assign::new(<>);
+
+pub Statement: ast::Statement = {
+    <Let> => ast::Statement::Let(<>),
+    <Assign> => ast::Statement::Assign(<>),
+    <FnDef> => ast::Statement::FnDef(<>),
+    "break" => ast::Statement::Break,
+    <Spanned<Expr>> => ast::Statement::Expr(<>),
+}
+
+StatementSemi: ast::Statement = <Statement> ";";
+
+pub Block: ast::Block = "{" <mut stmts:Spanned<StatementSemi>*> <last:Spanned<Statement>?> "}" 
+    => ast::Block::new(stmts, last);
+
+
+pub WhileLoop: ast::WhileLoop = "while" <Spanned<Expr>> <Block>
+    => ast::WhileLoop::new(<>);
+
+pub Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block>
+    => ast::Conditional::new(<>);
+
+
+pub Literal: ast::Literal = {
+    "intLit" => ast::Literal::Int(<>),
+    "floatLit" => ast::Literal::Float(<>),
+    "boolLit" => ast::Literal::Bool(<>),
+    "stringLit" => ast::Literal::String(<>),
+    "commandLit" => ast::Literal::Command(<>),
+}
+
+pub Expr: Box<ast::Expr> = {
+    #[precedence(level="1")]
+    <Term> => <>,
+
+    <UnaryOperator> <Spanned<Expr>> => {
+        Box::new(ast::Expr::UnOp(ast::UnOp::new(<>)))
+    },
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <lhs:Spanned<Expr>> <op:PrecTwoOp> <rhs:Spanned<Expr>> => {
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
+    },
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    <lhs:Spanned<Expr>> <op:PrecThreeOp> <rhs:Spanned<Expr>> => {
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
+    },
+    #[precedence(level="4")] #[assoc(side="left")]
+    <lhs:Spanned<Expr>> <op:PrecFourOp> <rhs:Spanned<Expr>> => {
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
+    },
+    #[precedence(level="5")] #[assoc(side="left")]
+    <lhs:Spanned<Expr>> <op:PrecFiveOp> <rhs:Spanned<Expr>> => {
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
+    },
+    #[precedence(level="6")] #[assoc(side="left")]
+    <lhs:Spanned<Expr>> <op:PrecSixOp> <rhs:Spanned<Expr>> => {
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
+    },
+    // lambda def
+    #[precedence(level="7")]
+    // "|" <Comma<Param>> "|" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
+    "bslash" <Comma<Param>> "=>" <Spanned<Expr>> => {
+        Box::new(ast::Expr::LambdaDef(ast::LambdaDef::new(<>)))
+    },
+}
+
+
+pub Term: Box<ast::Expr> = {
+    Block => Box::new(ast::Expr::Block(<>)),
+    Literal => Box::new(ast::Expr::Literal(<>)),
+    Conditional => Box::new(ast::Expr::Conditional(<>)),
+    WhileLoop => Box::new(ast::Expr::WhileLoop(<>)),
+    Identifier => Box::new(ast::Expr::Identifier(<>)),
+    // function call
+    <Spanned<Identifier>> "(" <Comma<Spanned<Expr>>> ")" 
+        => Box::new(ast::Expr::FnCall(ast::FnCall::new(<>))),
+    "(" <e:Expr> ")" => e,
+}
+
+pub UnaryOperator: ast::UnaryOperator = {
+    "!" => ast::UnaryOperator::Not,
+    // TODO: add bit invert
+    // "~" => ast::UnaryOperator::BitInvert,
+    "-" => ast::UnaryOperator::Negate,
+}
+
+pub PrecTwoOp: BinaryOperator = {
+    "*"  => BinaryOperator::Times,
+    "/"  => BinaryOperator::Div,
+    "%"  => BinaryOperator::Mod,
+}
+
+pub PrecThreeOp: BinaryOperator = {
+    "+"  => BinaryOperator::Plus,
+    "-"  => BinaryOperator::Minus,
+}
+
+pub PrecFourOp: BinaryOperator = {
+    "<"  => BinaryOperator::Lt,
+    "<=" => BinaryOperator::Lte,
+    ">"  => BinaryOperator::Gt,
+    ">=" => BinaryOperator::Gte,
+}
+
+pub PrecFiveOp: BinaryOperator = {
+    "==" => BinaryOperator::Eq,
+    "!=" => BinaryOperator::Ne,
+}
+
+pub PrecSixOp: BinaryOperator = {
+    "&"  => BinaryOperator::BitAnd,
+    "|"  => BinaryOperator::BitOr,
+}
+
+pub PrecSevenOp: BinaryOperator = {
+    "&&" => BinaryOperator::And,
+    "||" => BinaryOperator::Or,
+}
+
+pub Module: ast::Mod = FnDef+
+    => ast::Mod(<>);
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "fn" => Token::Fn,
+        "struct" => Token::Struct,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "for" => Token::For,
+        "while" => Token::While,
+        "break" => Token::Break,
+        "continue" => Token::Continue,
+        "in" => Token::In,
+        "let" => Token::Let,
+        "var" => Token::Var,
+        "bool" => Token::Bool,
+        "int" => Token::Int,
+        "float" => Token::Float,
+        "string" => Token::String,
+        "cmd" => Token::Cmd,
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Asterisk,
+        "/" => Token::Slash,
+        "%" => Token::Modulus,
+        "<" => Token::Less,
+        "<=" => Token::LessEqual,
+        ">" => Token::Greater,
+        ">=" => Token::GreaterEqual,
+        "==" => Token::EqualEqual,
+        "!=" => Token::NotEqual,
+        "&&" => Token::LogicalAnd,
+        "||" => Token::LogicalOr,
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+        "{" => Token::LBrace,
+        "}" => Token::RBrace,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
+        ":" => Token::Colon,
+        ";" => Token::SemiColon,
+        "=" => Token::Equal,
+        "," => Token::Comma,
+        "->" => Token::Arrow,
+        "=>" => Token::ThiccArrow,
+        "." => Token::Dot,
+        "#" => Token::Hash,
+        "&" => Token::Ampersand,
+        "|" => Token::Pipe,
+        "!" => Token::ExclamationMark,
+        "?" => Token::QuestionMark,
+        "bslash" => Token::Bslash,
+
+        "identifier" => Token::Identifier(<String>),
+        "boolLit" => Token::BoolLit(<bool>),
+        "stringLit" => Token::StrLit(<String>),
+        "intLit" => Token::IntLit(<i64>),
+        "floatLit" => Token::FloatLit(<OrderedFloat<f64>>),
+        "commandLit" => Token::CommandLit(<String>),
+        "error" => Token::Error
+    }
+}
