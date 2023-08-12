@@ -414,6 +414,7 @@ dependencies = [
  "clam_common",
  "derive_more",
  "im",
+ "num-traits",
  "ordered-float",
 ]
 
