@@ -77,13 +77,7 @@ pub Statement: ast::Statement = {
 StatementSemi: ast::Statement = <Statement> ";";
 
 pub Block: ast::Block = "{" <mut stmts:Spanned<StatementSemi>*> <last:Spanned<Statement>?> "}" 
-    => ast::Block::new(match last {
-        Some(s) => {
-            stmts.push(s);
-            stmts
-        },
-        None => stmts
-    });
+    => ast::Block::new(stmts, last);
 
 
 pub WhileLoop: ast::WhileLoop = "while" <Spanned<Expr>> <Block>

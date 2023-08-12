@@ -46,7 +46,10 @@ mod lalrpop {
     }
 
     fn strip_stmt_loc((_, s, _): Span<Statement>) -> Span<Statement> {
-        let strip_block_loc = |Block(stmts)| Block(stmts.into_iter().map(strip_stmt_loc).collect());
+        let strip_block_loc = |Block { body, last } | Block::new(
+            body.into_iter().map(strip_stmt_loc).collect(),
+            last.map(strip_stmt_loc)
+        );
 
         let strip_fndef_loc = |FnDef { name, param_list, ret_type, body }| {
             let param_list = param_list.into_iter().map(|(id, t)|
@@ -117,7 +120,10 @@ mod lalrpop {
             }
         };
 
-        let strip_block_loc = |Block(stmts)| Block(stmts.into_iter().map(strip_stmt_loc).collect());
+        let strip_block_loc = |Block { body, last } | Block::new(
+            body.into_iter().map(strip_stmt_loc).collect(),
+            last.map(strip_stmt_loc)
+        );
 
         let stripped = Box::new(match *exp {
             Expr::BinOp(b) => Expr::BinOp(strip_binop_loc(b)),
@@ -237,7 +243,7 @@ mod lalrpop {
 }     
         ").unwrap();
         let res = b(
-            Expr::Block(ast::Block(vec![
+            Expr::Block(ast::Block::new(vec![
                 Statement::Assign(Assign::new(
                     Identifier("a".into()).null_span(),
                     b(Expr::Identifier("b".into()))
@@ -250,7 +256,9 @@ mod lalrpop {
                         b(Expr::BinOp(BinOp::new(Times, b(Expr::Literal(Int(3))), b(Expr::Literal(Int(4))))))
                     )))
                 )).null_span(),
-            ])
+            ],
+            None
+            )
         ));
 
         assert_eq!(expr, res);
@@ -265,12 +273,14 @@ mod lalrpop {
         assert_eq!(expr, b(
             Conditional(self::Conditional::new(
                 b(Literal(Bool(true))),
-                Block::new(vec![
+                Block::new(
+                    vec![],
+                Some(
                     Statement::Assign(Assign::new(
-                        Identifier("a".into()).null_span(), 
+                        Identifier("a".into()).null_span(),
                         b(Expr::Identifier("b".into()))
                     )).null_span()
-                ])
+                ))
             )
         )))
     }
@@ -284,12 +294,14 @@ mod lalrpop {
         assert_eq!(expr, b(
             WhileLoop(self::WhileLoop::new(
                 b(Expr::Literal(Bool(false))),
-                Block::new(vec![
+                Block::new(
+                    vec![],
+                Some(
                     Statement::Assign(Assign::new(
-                        Identifier("a".into()).null_span(), 
+                        Identifier("a".into()).null_span(),
                         b(Expr::Identifier("b".into()))
                     )).null_span()
-                ])
+                ))
             )
         )))
     }
@@ -365,15 +377,18 @@ fn thing(a, b: int) -> bool {
             ret_type: Some(Type::Primitive(Primitive::Bool).null_span()),
             body: b(Expr::Block(Block::new(vec![
                 Statement::Assign(Assign::new(Identifier("a".into()).null_span(), b(Expr::Identifier("b".into())))).null_span(),
+            ],
+            Some(
                 Statement::Assign(Assign::new(
-                    Identifier("a".into()).null_span(), 
+                    Identifier("a".into()).null_span(),
                     b(Expr::BinOp(BinOp::new(
                         BinaryOperator::Plus,
                         b(Expr::Literal(Literal::Int(1))),
                         b(Expr::Literal(Literal::Int(1)))
                     )))
                 )).null_span()
-            ])))
+            )
+            )))
         }));
     }
 
