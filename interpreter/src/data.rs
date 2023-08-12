@@ -9,6 +9,7 @@ use derive_more::{Add, Sub, Div, Mul, Not, Neg, From};
 
 use crate::Result;
 
+#[derive(Debug)]
 pub enum ErrorSource {
     DivisionByZero,
     VariableNotFound,
@@ -25,6 +26,7 @@ impl ErrorSource {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct ClamRuntimeError {
     loc: (usize, usize),
     src: ErrorSource,
@@ -45,6 +47,7 @@ impl PartialEq<Self> for ClamUserType {
 }
 impl Eq for ClamUserType {}
 
+#[allow(dead_code)]
 enum GcStatus {
     Marked(Option<usize>),
     Unmarked,
@@ -58,7 +61,7 @@ impl<T> Default for Heap<T> {
 }
 
 impl<T> Heap<T> {
-    pub fn move_to_heap(&mut self, mut data: T) -> GcRef<T> {
+    pub fn move_to_heap(&mut self, data: T) -> GcRef<T> {
         self.0.push(data);
         let idx = self.0.len() - 1;
 
@@ -127,12 +130,13 @@ pub enum ClamData {
     Bool(ClamBool),
 }
 
-impl TryInto<ClamFloat> for &ClamData {
+
+impl TryFrom<&ClamData> for ClamFloat {
     type Error = ();
 
-    fn try_into(self) -> std::result::Result<ClamFloat, Self::Error> {
+    fn try_from(value: &ClamData) -> std::result::Result<Self, Self::Error> {
         use ClamData::*;
-        match self {
+        match value {
             Float(f) => Ok(ClamFloat(f.0)),
             Int(i) => Ok(ClamFloat((i.0 as f64).into())),
             _ => Err(()),
@@ -174,8 +178,8 @@ impl std::ops::Add for &ClamData {
             (String(s1), String(s2)) => ClamData::String(s1 + s2),
             (Float(f1), Float(f2)) => ClamData::Float(*f1 + *f2),
             (Int(i1), Int(i2)) => ClamData::Int(*i1 + *i2),
-            (Bool(b1), Bool(b2)) => unreachable!("bool + bool should be unreachable"),
-            (UserType(u1), UserType(u2)) => unreachable!("cannot add user types"),
+            (Bool(_b1), Bool(_b2)) => unreachable!("bool + bool should be unreachable"),
+            (UserType(_u1), UserType(_u2)) => unreachable!("cannot add user types"),
 
             (Float(f), other@_)
             | (other@_, Float(f))
@@ -219,17 +223,37 @@ impl std::ops::Mul for &ClamData {
         use ClamData::*;
 
         match (self, rhs) {
-            (String(s1), String(s2)) => unreachable!("multiplication of strings should be unreachable"),
+            (String(_), String(_)) => unreachable!("multiplication of strings should be unreachable"),
             (Float(f1), Float(f2)) => ClamData::Float(ClamFloat((*f1.0 * *f2.0).into())),
             (Int(i1), Int(i2)) => ClamData::Int(ClamInt(i1.0 * i2.0)),
             (Float(f), other@_)
-            | (other@_, Float(f))
-                    if let Ok(other_) = ClamFloat::try_from(*f) => Float(*f * other_.0),
+            | (other, Float(f))
+                    if let Ok(other_) = ClamFloat::try_from(other) => Float(*f * other_.0),
 
             (_, _) => unreachable!("mismatched types in mul"),
         }
     }
 }
+
+fn try_div<InType, CombType, CombOut>(lhs: InType, rhs: InType, comb: CombType) -> Result<CombOut>
+where 
+  InType: std::ops::Div + num_traits::Zero,
+  CombType: FnOnce(<InType as std::ops::Div>::Output) -> CombOut {
+    if rhs.is_zero() {
+        ErrorSource::DivisionByZero.empty_loc()
+    }
+    else {
+        Ok(comb(lhs / rhs))
+    }
+}
+fn compose<F, G, I1, I2, O2>(f: F, g: G) -> impl Fn(I1) -> O2
+where
+    F: Fn(I2) -> O2,
+    G: Fn(I1) -> I2,
+{
+    move |x| f(g(x))
+}
+
 
 impl std::ops::Div for &ClamData {
     type Output = Result<ClamData>;
@@ -238,20 +262,16 @@ impl std::ops::Div for &ClamData {
         use ClamData::*;
 
         match (self, rhs) {
-            (Float(f1), Float(f2)) => {
-                if f2.0 == 0.0 {
-                    ErrorSource::DivisionByZero.empty_loc()
-                } else {
-                    Ok(ClamData::Float(ClamFloat(f1.0 / f2.0)))
-                }
-            },
-            (Int(i1), Int(i2)) => {
-                if i2.0 == 0 {
-                    ErrorSource::DivisionByZero.empty_loc()
-                } else {
-                    Ok(ClamData::Int(ClamInt(i1.0 / i2.0)))
-                }
-            },
+            (Float(f1), Float(f2)) => 
+                try_div(f1.0, f2.0, compose(ClamData::Float, ClamFloat)),
+            (Int(i1), Int(i2)) =>
+                try_div(i1.0, i2.0, compose(ClamData::Int, ClamInt)),
+            (Float(f1), other)
+              if let Ok(other) = ClamFloat::try_from(other) =>
+                try_div(f1.0, other.0, compose(ClamData::Float, ClamFloat)),
+            (other, Float(f2))
+              if let Ok(other) = ClamFloat::try_from(other) =>
+                try_div(other.0, f2.0, compose(ClamData::Float, ClamFloat)),
             (String(_), String(_)) => unreachable!("divide strings should be unreachable"),
             (_, _) => unreachable!("mismatched types in div"),
         }
@@ -262,12 +282,25 @@ impl std::ops::Div for &ClamData {
 mod test {
     use crate::data::{ClamData, ClamFloat};
 
-    fn clam_float(f: f64) -> ClamData {
+    use super::ClamInt;
+
+    fn cfloat(f: f64) -> ClamData {
         ClamData::Float(ClamFloat(f.into()))
+    }
+
+    fn cint(i: i64) -> ClamData {
+        ClamData::Int(ClamInt(i))
     }
 
     #[test]
     fn test_add() {
-        assert_eq!(&clam_float(1.1) + &clam_float(2.4), clam_float(3.5));
+        assert_eq!(&cfloat(1.1) + &cfloat(2.4), cfloat(3.5));
+    }
+
+    #[test]
+    fn test_div() {
+        assert_eq!((&cfloat(4.0) / &cfloat(2.0)).unwrap(), cfloat(2.0));
+        assert_eq!((&cfloat(4.0) / &cint(2)).unwrap(), cfloat(2.0));
+        assert_eq!((&cint(4) / &cfloat(2.0)).unwrap(), cfloat(2.0));
     }
 }
