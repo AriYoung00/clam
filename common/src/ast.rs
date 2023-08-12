@@ -85,8 +85,8 @@ pub struct Assign {
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct FunctionType {
-    pub params: Vec<Type>,
-    pub return_type: Option<Type>,
+    pub params: Vec<Box<Type>>,
+    pub return_type: Option<Box<Type>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
