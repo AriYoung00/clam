@@ -55,7 +55,10 @@ pub struct Identifier(pub String);
 
 #[derive(Clone, Debug, PartialEq, Eq, From, Constructor)]
 #[from(forward)]
-pub struct Block(pub Vec<Span<Statement>>);
+pub struct Block {
+    pub body: Vec<Span<Statement>>,
+    pub last: Option<Span<Statement>>,
+}
 
 pub type Param = (Span<Identifier>, Option<Span<Type>>);
 
@@ -80,12 +83,19 @@ pub struct Assign {
     pub expr: Span<Box<Expr>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Constructor)]
+pub struct FunctionType {
+    pub params: Vec<Type>,
+    pub return_type: Option<Type>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Primitive(Primitive),
     Name(Identifier),
     Sum(Vec<Type>),
     Any,
+    Function(FunctionType),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
