@@ -1,75 +1,71 @@
 use crate::ast::*;
 
-pub type ResOpt<OutputType, ErrorType> = Result<Option<OutputType>, ErrorType>;
-
 pub trait AstVisitor<CtxType, ErrorType> {
     type OutputType;
 
-    fn default() -> ResOpt<Self::OutputType, ErrorType> {
-        Ok(None)
-    }
+    fn default() -> Result<Self::OutputType, ErrorType>;
 
-    fn visit_primitive(p: &Primitive, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_primitive(p: &Primitive, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_literal(l: &Literal, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_literal(l: &Literal, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_identifier(i: &Identifier, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_identifier(i: &Identifier, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_fn_def(f: &FnDef, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_fn_def(f: &FnDef, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_let(l: &Let, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_let(l: &Let, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_assign(a: &Assign, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_assign(a: &Assign, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_break(ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_break(ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_block(b: &Block, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_block(b: &Block, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_bin_op(b: &BinOp, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_bin_op(b: &BinOp, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_un_op(u: &UnOp, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_un_op(u: &UnOp, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_fn_call(f: &FnCall, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_fn_call(f: &FnCall, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_lambda_def(l: &LambdaDef, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_lambda_def(l: &LambdaDef, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_conditional(c: &Conditional, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_conditional(c: &Conditional, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_while_loop(w: &WhileLoop, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_while_loop(w: &WhileLoop, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_for_loop(f: &ForLoop, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_for_loop(f: &ForLoop, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         Self::default()
     }
 
-    fn visit_statement(s: &Statement, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_statement(s: &Statement, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         match s {
             Statement::FnDef(f)  => Self::visit_fn_def(&f, ctx),
             Statement::Let(l)    => Self::visit_let(&l, ctx),
@@ -80,7 +76,7 @@ pub trait AstVisitor<CtxType, ErrorType> {
         }
     }
 
-    fn visit_expr(e: &Expr, ctx: CtxType) -> ResOpt<Self::OutputType, ErrorType> {
+    fn visit_expr(e: &Expr, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         match e {
             Expr::Literal(l) => Self::visit_literal(&l, ctx),
             Expr::BinOp(b) => Self::visit_bin_op(&b, ctx),
