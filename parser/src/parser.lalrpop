@@ -147,7 +147,7 @@ pub Term: Box<ast::Expr> = {
     Identifier => Box::new(ast::Expr::Identifier(<>)),
     // function call
     <Spanned<Identifier>> "(" <Comma<Spanned<Expr>>> ")" 
-        => Box::new(ast::Expr::FnCall(ast::FnCall::new(<>.into_iter().map(|(a, b, c)| (a, *b, c)).collect()))),
+        => Box::new(ast::Expr::FnCall(ast::FnCall::new(<>))),
     "(" <e:Expr> ")" => e,
 }
 

@@ -3,10 +3,9 @@
 
 use criterion::{black_box, criterion_main, criterion_group, Criterion, Bencher};
 use clam_parser::lexer::*;
-use chumsky::Parser;
 
 fn lex(s: &str) {
-    lexer().parse(black_box(s)).unwrap();
+    black_box(Lexer::new(s).collect::<Vec<_>>());
 }
 
 fn lex_single_keyword(bencher: &mut Bencher) {
