@@ -71,6 +71,7 @@ pub Statement: ast::Statement = {
     <Assign> => ast::Statement::Assign(<>),
     <FnDef> => ast::Statement::FnDef(<>),
     "break" => ast::Statement::Break,
+    "return" => ast::Statement::Return,
     <Spanned<Expr>> => ast::Statement::Expr(<>),
 }
 
@@ -83,7 +84,9 @@ pub Block: ast::Block = "{" <mut stmts:Spanned<StatementSemi>*> <last:Spanned<St
 pub WhileLoop: ast::WhileLoop = "while" <Spanned<Expr>> <Block>
     => ast::WhileLoop::new(<>);
 
-pub Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block>
+
+pub ElseClause: ast::Block = "else" <Block>;
+pub Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block> <ElseClause?>
     => ast::Conditional::new(<>);
 
 
@@ -201,6 +204,7 @@ extern {
         "while" => Token::While,
         "break" => Token::Break,
         "continue" => Token::Continue,
+        "return" => Token::Return,
         "in" => Token::In,
         "let" => Token::Let,
         "var" => Token::Var,
