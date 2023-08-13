@@ -9,5 +9,5 @@ edition = "2021"
 clam_common  = { path = "../common" }
 derive_more = "0.99.17"
 ordered-float = "3.7.0"
-im = "15.1.0"
+im-rc = "15.1.0"
 num-traits = "0.2"
