@@ -146,7 +146,7 @@ impl AstVisitor<TypeCheckerCtx, TypeCheckerError> for TypeChecker {
         // Update context
         new_ctx.vars.insert(l.id.1.clone(), id_type);
 
-        Ok(TypeCheckerErrorSource::new(None, new_ctx))
+        Ok(TypeCheckerOutput::new(None, new_ctx))
     }
 
     fn visit_assign(a: &Assign, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
