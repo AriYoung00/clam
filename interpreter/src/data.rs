@@ -28,8 +28,8 @@ impl ErrorSource {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ClamRuntimeError {
-    loc: (usize, usize),
-    src: ErrorSource,
+    pub loc: (usize, usize),
+    pub src: ErrorSource,
 }
 
 
@@ -37,7 +37,7 @@ pub struct ClamRuntimeError {
 #[derive(Debug)]
 pub struct ClamUserType {
     typename: Type,
-    fields: HashMap<Identifier, GcRef<ClamData>>,
+    fields: HashMap<Identifier, ClamData>,
 }
 
 impl PartialEq<Self> for ClamUserType {
@@ -78,6 +78,16 @@ pub struct GcRef<T> {
     data: *mut T,
 }
 
+impl<T> PartialEq for GcRef<T>
+where T: PartialEq {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe {
+            self.idx == other.idx && (*self.data) == (*other.data)
+        }
+    }
+}
+impl <T> Eq for GcRef<T> where T: PartialEq {}
+
 impl<T> AsRef<T> for GcRef<T> {
     fn as_ref(&self) -> &T {
         unsafe {
@@ -96,7 +106,7 @@ impl<T> Copy for GcRef<T> {}
 
 #[derive(Clone, PartialEq, Eq, From, Debug)]
 pub struct ClamString(pub Arc<str>);
-impl std::ops::Add for &ClamString {
+impl std::ops::Add for ClamString {
     type Output = ClamString;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -121,13 +131,14 @@ impl From<&i64> for ClamInt {
 pub struct ClamBool(bool);
 
 #[allow(dead_code)]
-#[derive(PartialEq, Eq, From, Debug)]
+#[derive(PartialEq, Eq, From, Debug, Clone)]
 pub enum ClamData {
-    UserType(ClamUserType),
+    UserType(GcRef<ClamUserType>),
     String(ClamString),
     Float(ClamFloat),
     Int(ClamInt),
     Bool(ClamBool),
+    Empty,
 }
 
 
@@ -144,7 +155,15 @@ impl TryFrom<&ClamData> for ClamFloat {
     }
 }
 
-impl TryInto<ClamString> for &ClamData {
+impl TryFrom<ClamData> for ClamFloat {
+    type Error = ();
+
+    fn try_from(value: ClamData) -> std::result::Result<Self, Self::Error> {
+        ClamFloat::try_from(&value)
+    }
+}
+
+impl TryInto<ClamString> for ClamData {
     type Error = ();
 
     fn try_into(self) -> std::result::Result<ClamString, Self::Error> {
@@ -168,7 +187,7 @@ impl ClamData {
     }
 }
 
-impl std::ops::Add for &ClamData {
+impl std::ops::Add for ClamData {
     type Output = ClamData;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -176,21 +195,21 @@ impl std::ops::Add for &ClamData {
 
         match (self, rhs) {
             (String(s1), String(s2)) => ClamData::String(s1 + s2),
-            (Float(f1), Float(f2)) => ClamData::Float(*f1 + *f2),
-            (Int(i1), Int(i2)) => ClamData::Int(*i1 + *i2),
+            (Float(f1), Float(f2)) => ClamData::Float(f1 + f2),
+            (Int(i1), Int(i2)) => ClamData::Int(i1 + i2),
             (Bool(_b1), Bool(_b2)) => unreachable!("bool + bool should be unreachable"),
             (UserType(_u1), UserType(_u2)) => unreachable!("cannot add user types"),
 
             (Float(f), other@_)
             | (other@_, Float(f))
-                    if let Ok(rhs_) = other.try_into() => Float(*f + rhs_),
+                    if let Ok(rhs_) = ClamFloat::try_from(&other) => Float(f + rhs_),
 
             (_, _) => unreachable!("mismatched type addition should be unreachable"),
         }.into()
     }
 }
 
-impl std::ops::Not for &ClamData {
+impl std::ops::Not for ClamData {
     type Output = ClamData;
 
     fn not(self) -> Self::Output {
@@ -201,7 +220,7 @@ impl std::ops::Not for &ClamData {
     }
 }
 
-impl std::ops::Sub for &ClamData {
+impl std::ops::Sub for ClamData {
     type Output = ClamData;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -211,12 +230,16 @@ impl std::ops::Sub for &ClamData {
             (String(_), String(_)) => unreachable!("subtract strings should be unreachable"),
             (Float(f1), Float(f2)) => ClamData::Float(ClamFloat(f1.0 - f2.0)),
             (Int(i1), Int(i2)) => ClamData::Int(ClamInt(i1.0 - i2.0)),
+            (Float(f1), other)
+              if let Ok(other) = ClamFloat::try_from(&other) => ClamData::Float(ClamFloat(f1.0 - other.0)),
+            (other, Float(f2))
+              if let Ok(other) = ClamFloat::try_from(&other) => ClamData::Float(ClamFloat(other.0 - f2.0)),
             (_, _) => unreachable!("mismatched types in sub"),
         }
     }
 }
 
-impl std::ops::Mul for &ClamData {
+impl std::ops::Mul for ClamData {
     type Output = ClamData;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -226,9 +249,9 @@ impl std::ops::Mul for &ClamData {
             (String(_), String(_)) => unreachable!("multiplication of strings should be unreachable"),
             (Float(f1), Float(f2)) => ClamData::Float(ClamFloat((*f1.0 * *f2.0).into())),
             (Int(i1), Int(i2)) => ClamData::Int(ClamInt(i1.0 * i2.0)),
-            (Float(f), other@_)
+            (Float(f), other)
             | (other, Float(f))
-                    if let Ok(other_) = ClamFloat::try_from(other) => Float(*f * other_.0),
+                    if let Ok(other_) = ClamFloat::try_from(&other) => Float(f * other_.0),
 
             (_, _) => unreachable!("mismatched types in mul"),
         }
@@ -255,7 +278,7 @@ where
 }
 
 
-impl std::ops::Div for &ClamData {
+impl std::ops::Div for ClamData {
     type Output = Result<ClamData>;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -267,10 +290,10 @@ impl std::ops::Div for &ClamData {
             (Int(i1), Int(i2)) =>
                 try_div(i1.0, i2.0, compose(ClamData::Int, ClamInt)),
             (Float(f1), other)
-              if let Ok(other) = ClamFloat::try_from(other) =>
+              if let Ok(other) = ClamFloat::try_from(&other) =>
                 try_div(f1.0, other.0, compose(ClamData::Float, ClamFloat)),
             (other, Float(f2))
-              if let Ok(other) = ClamFloat::try_from(other) =>
+              if let Ok(other) = ClamFloat::try_from(&other) =>
                 try_div(other.0, f2.0, compose(ClamData::Float, ClamFloat)),
             (String(_), String(_)) => unreachable!("divide strings should be unreachable"),
             (_, _) => unreachable!("mismatched types in div"),
@@ -294,13 +317,35 @@ mod test {
 
     #[test]
     fn test_add() {
-        assert_eq!(&cfloat(1.1) + &cfloat(2.4), cfloat(3.5));
+        assert_eq!(cfloat(4.0) + cfloat(2.0), cfloat(6.0));
+        assert_eq!(cfloat(4.0) + cint(2), cfloat(6.0));
+        assert_eq!(cint(4) + cfloat(2.0), cfloat(6.0));
+        assert_eq!(cint(10) + cint(2), cint(12));
     }
+    
+    #[test]
+    fn test_sub() {
+        assert_eq!(cfloat(4.0) - cfloat(2.0), cfloat(2.0));
+        assert_eq!(cfloat(4.0) - cint(2), cfloat(2.0));
+        assert_eq!(cint(4)     - cfloat(2.0), cfloat(2.0));
+        assert_eq!(cint(10)    - cint(2), cint(8));
+    }
+    
+    #[test]
+    fn test_mul() {
+        assert_eq!(cfloat(4.0) * cfloat(2.0), cfloat(8.0));
+        assert_eq!(cfloat(4.0) * cint(2), cfloat(8.0));
+        assert_eq!(cint(4)     * cfloat(2.0), cfloat(8.0));
+        assert_eq!(cint(10)    * cint(2), cint(20));
+    }
+    
 
     #[test]
     fn test_div() {
-        assert_eq!((&cfloat(4.0) / &cfloat(2.0)).unwrap(), cfloat(2.0));
-        assert_eq!((&cfloat(4.0) / &cint(2)).unwrap(), cfloat(2.0));
-        assert_eq!((&cint(4) / &cfloat(2.0)).unwrap(), cfloat(2.0));
+        assert_eq!((cfloat(4.0) / cfloat(2.0)).unwrap(), cfloat(2.0));
+        assert_eq!((cfloat(4.0) / cint(2)).unwrap(), cfloat(2.0));
+        assert_eq!((cint(4)     / cfloat(2.0)).unwrap(), cfloat(2.0));
+        assert_eq!((cint(10)    / cint(2)).unwrap(), cint(5));
     }
+
 }
