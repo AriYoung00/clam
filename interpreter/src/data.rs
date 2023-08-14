@@ -3,11 +3,12 @@ use clam_common::ast::Type;
 use clam_common::ast::Identifier;
 use ordered_float::OrderedFloat;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, cmp};
 use std::sync::Arc;
 use derive_more::{Add, Sub, Div, Mul, Not, Neg, From};
 
-use crate::Result;
+use crate::{Result, EvalResult};
+use EvalResult::*;
 
 #[derive(Debug)]
 pub enum ErrorSource {
@@ -60,6 +61,7 @@ impl<T> Default for Heap<T> {
     }
 }
 
+#[allow(dead_code)]
 impl<T> Heap<T> {
     pub fn move_to_heap(&mut self, data: T) -> GcRef<T> {
         self.0.push(data);
@@ -128,7 +130,7 @@ impl From<&i64> for ClamInt {
 
 
 #[derive(PartialEq, Eq, Not, From, Clone, Copy, Debug)]
-pub struct ClamBool(bool);
+pub struct ClamBool(pub bool);
 
 #[allow(dead_code)]
 #[derive(PartialEq, Eq, From, Debug, Clone)]
@@ -147,6 +149,7 @@ impl TryFrom<&ClamData> for ClamFloat {
 
     fn try_from(value: &ClamData) -> std::result::Result<Self, Self::Error> {
         use ClamData::*;
+        use core::result::Result::*;
         match value {
             Float(f) => Ok(ClamFloat(f.0)),
             Int(i) => Ok(ClamFloat((i.0 as f64).into())),
@@ -167,6 +170,7 @@ impl TryInto<ClamString> for ClamData {
     type Error = ();
 
     fn try_into(self) -> std::result::Result<ClamString, Self::Error> {
+        use core::result::Result::*;
         use ClamData::*;
         match self {
             String(s) => Ok(s.clone()),
@@ -175,6 +179,8 @@ impl TryInto<ClamString> for ClamData {
     }
 }
 
+
+#[allow(dead_code)]
 impl ClamData {
     pub fn type_eq(&self, rhs: &Self) -> bool {
         use std::mem::discriminant;
@@ -192,6 +198,7 @@ impl std::ops::Add for ClamData {
 
     fn add(self, rhs: Self) -> Self::Output {
         use ClamData::*;
+        use core::result::Result::*;
 
         match (self, rhs) {
             (String(s1), String(s2)) => ClamData::String(s1 + s2),
@@ -215,7 +222,20 @@ impl std::ops::Not for ClamData {
     fn not(self) -> Self::Output {
         match self {
             ClamData::Bool(ClamBool(b)) => ClamData::Bool(ClamBool(!b)),
+            ClamData::Int(ClamInt(i)) => ClamData::Int(ClamInt(!i)),
             t@_ => unreachable!("logical not on something besides bool: {t:?}"),
+        }
+    }
+}
+
+impl std::ops::Neg for ClamData {
+    type Output = ClamData;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            ClamData::Float(f1) => ClamData::Float(-f1),
+            ClamData::Int(i1) => ClamData::Int(-i1),
+            other => unreachable!("negating '{other:?} should be unreachable"),
         }
     }
 }
@@ -225,6 +245,7 @@ impl std::ops::Sub for ClamData {
 
     fn sub(self, rhs: Self) -> Self::Output {
         use ClamData::*;
+        use core::result::Result::*;
 
         match (self, rhs) {
             (String(_), String(_)) => unreachable!("subtract strings should be unreachable"),
@@ -244,6 +265,7 @@ impl std::ops::Mul for ClamData {
 
     fn mul(self, rhs: Self) -> Self::Output {
         use ClamData::*;
+        use core::result::Result::*;
 
         match (self, rhs) {
             (String(_), String(_)) => unreachable!("multiplication of strings should be unreachable"),
@@ -283,6 +305,7 @@ impl std::ops::Div for ClamData {
 
     fn div(self, rhs: Self) -> Self::Output {
         use ClamData::*;
+        use core::result::Result::*;
 
         match (self, rhs) {
             (Float(f1), Float(f2)) => 
@@ -300,6 +323,96 @@ impl std::ops::Div for ClamData {
         }
     }
 }
+
+fn try_mod<InType, CombType, CombOut>(lhs: InType, rhs: InType, comb: CombType) -> Result<CombOut>
+where 
+  InType: std::ops::Rem + num_traits::Zero,
+  CombType: FnOnce(<InType as std::ops::Rem>::Output) -> CombOut {
+    if rhs.is_zero() {
+        ErrorSource::DivisionByZero.empty_loc()
+    }
+    else {
+        Ok(comb(lhs % rhs))
+    }
+}
+
+impl std::ops::Rem for ClamData {
+    type Output = Result<ClamData>;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        use ClamData::*;
+        use core::result::Result::*;
+
+        let as_float = compose(ClamData::Float, ClamFloat);
+        let as_int = compose(ClamData::Int, ClamInt);
+
+        match (self, rhs) {
+            (Float(f1), Float(f2)) => try_mod(f1.0, f2.0, as_float),
+            (Int(i1), Int(i2)) => try_mod(i1.0, i2.0, as_int),
+            (Float(f1), other) if let Ok(other) = ClamFloat::try_from(&other) => try_mod(f1.0, other.0, as_float),
+            (other, Float(f2)) if let Ok(other) = ClamFloat::try_from(&other) => try_mod(other.0, f2.0, as_float),
+            (lhs, rhs) => unreachable!("invalid operands to modulus: '{lhs:?} % {rhs:?}' should be unreachable"),
+        }
+    }
+}
+
+impl PartialOrd for ClamData {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        use ClamData::*;
+        use core::result::Result::*;
+
+        match (self, other) {
+            (Float(f1), Float(f2)) => Some(f1.0.cmp(&f2.0)),
+            (Int(i1), Int(i2)) => Some(i1.0.cmp(&i2.0)),
+            (Float(f1), other) if let Ok(other) = ClamFloat::try_from(other) => Some(f1.0.cmp(&other.0)),
+            (other, Float(f2)) if let Ok(other) = ClamFloat::try_from(other) => Some(other.0.cmp(&f2.0)),
+            (lhs, rhs) => unreachable!("invalid operands to comparison op: '{lhs:?} % {rhs:?}' should be unreachable"),
+        }
+    }
+}
+
+impl std::ops::BitAnd for ClamData {
+    type Output = ClamData;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        use ClamData::*;
+
+        match (self, rhs) {
+            (Int(ClamInt(i1)), Int(ClamInt(i2))) => Int(ClamInt(i1 & i2)),
+            (Bool(ClamBool(b1)), Bool(ClamBool(b2))) => Bool(ClamBool(b1 & b2)),
+            (lhs, rhs) => unreachable!("invalid operands to bitand: '{lhs:?} & {rhs:?}' should be unreachable"),
+        }
+    }
+}
+
+impl std::ops::BitOr for ClamData {
+    type Output = ClamData;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        use ClamData::*;
+
+        match (self, rhs) {
+            (Int(ClamInt(i1)), Int(ClamInt(i2))) => Int(ClamInt(i1 | i2)),
+            (Bool(ClamBool(b1)), Bool(ClamBool(b2))) => Bool(ClamBool(b1 | b2)),
+            (lhs, rhs) => unreachable!("invalid operands to bitor: '{lhs:?} & {rhs:?}' should be unreachable"),
+        }
+    }
+}
+
+impl std::ops::BitXor for ClamData {
+    type Output = ClamData;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        use ClamData::*;
+
+        match (self, rhs) {
+            (Int(ClamInt(i1)), Int(ClamInt(i2))) => Int(ClamInt(i1 ^ i2)),
+            (Bool(ClamBool(b1)), Bool(ClamBool(b2))) => Bool(ClamBool(b1 ^ b2)),
+            (lhs, rhs) => unreachable!("invalid operands to bitxor: '{lhs:?} & {rhs:?}' should be unreachable"),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod test {
