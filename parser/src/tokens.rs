@@ -1,4 +1,4 @@
-use logos::{Logos, Lexer};
+use logos::Logos;
 use ordered_float::OrderedFloat;
 
 #[derive(Logos, Clone, Debug, PartialEq, Eq)]
@@ -99,6 +99,8 @@ pub enum Token {
     Hash,
     #[token("&")]
     Ampersand,
+    #[token("^")]
+    Caret,
     #[token("!")]
     ExclamationMark,
     #[token("?")]

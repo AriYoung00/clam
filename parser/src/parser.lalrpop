@@ -1,6 +1,3 @@
-// use clam_common::ast;
-// use clam_common::ast::BinaryOperator;
-// use crate::lexer::LexicalError;
 use clam_common::{
     ast,
     ast::{
@@ -25,9 +22,9 @@ Comma<T>: Vec<T> = { // (1)
 
 Spanned<T>: ast::Span<T> = <@L> <T> <@R> => (<>);
 
-pub Identifier: ast::Identifier = "identifier" => <>.into();
+Identifier: ast::Identifier = "identifier" => <>.into();
 
-pub Primitive: ast::Primitive = {
+Primitive: ast::Primitive = {
     "int"    => ast::Primitive::Int,
     "float"  => ast::Primitive::Float,
     "bool"   => ast::Primitive::Bool,
@@ -35,35 +32,35 @@ pub Primitive: ast::Primitive = {
     "cmd"    => ast::Primitive::Command,
 }
 
-pub Type: ast::Type = {
+Type: ast::Type = {
     Primitive  => ast::Type::Primitive(<>),
     Identifier => ast::Type::Name(<>),
 }
 
 
-pub Param: (ast::Span<ast::Identifier>, Option<ast::Span<ast::Type>>) = 
+Param: (ast::Span<ast::Identifier>, Option<ast::Span<ast::Type>>) = 
     <name:Spanned<Identifier>> ":"? <tname:Spanned<Type>?> => (<>);
 
-pub RetType: ast::Span<ast::Type> = "->" <Spanned<Type>> => <>;
+RetType: ast::Span<ast::Type> = "->" <Spanned<Type>> => <>;
 
-pub FnDef: ast::FnDef = {
+FnDef: ast::FnDef = {
     "fn" <Spanned<Identifier>>  "(" <Comma<Param>> ")" 
     <RetType?> <Spanned<Expr>>
         => ast::FnDef::new(<>)
 }
 
-pub StructDef: ast::StructDef = "struct" <Spanned<Identifier>> "{" <Comma<Param>> "}"
+StructDef: ast::StructDef = "struct" <Spanned<Identifier>> "{" <Comma<Param>> "}"
         => ast::StructDef::new(<>);
 
-pub LetType: ast::Span<ast::Type> = {
+LetType: ast::Span<ast::Type> = {
     ":" <Spanned<Type>> => <>
 }
 
-pub LetAssign: ast::Span<Box<ast::Expr>> = "=" <Spanned<Expr>> => <>;
-pub Let: ast::Let = "let" <Spanned<Identifier>> <LetType?> <LetAssign?>
+LetAssign: ast::Span<Box<ast::Expr>> = "=" <Spanned<Expr>> => <>;
+Let: ast::Let = "let" <Spanned<Identifier>> <LetType?> <LetAssign?>
         => ast::Let::new(<>);
 
-pub Assign: ast::Assign = <Spanned<Identifier>> "=" <Spanned<Expr>>
+Assign: ast::Assign = <Spanned<Identifier>> "=" <Spanned<Expr>>
     => ast::Assign::new(<>);
 
 pub Statement: ast::Statement = {
@@ -71,26 +68,26 @@ pub Statement: ast::Statement = {
     <Assign> => ast::Statement::Assign(<>),
     <FnDef> => ast::Statement::FnDef(<>),
     "break" => ast::Statement::Break,
-    "return" => ast::Statement::Return,
+    "return" <Spanned<Expr>?> => ast::Statement::Return(<>),
     <Spanned<Expr>> => ast::Statement::Expr(<>),
 }
 
 StatementSemi: ast::Statement = <Statement> ";";
 
-pub Block: ast::Block = "{" <mut stmts:Spanned<StatementSemi>*> <last:Spanned<Statement>?> "}" 
+Block: ast::Block = "{" <stmts:Spanned<StatementSemi>*> <last:Spanned<Statement>?> "}" 
     => ast::Block::new(stmts, last);
 
 
-pub WhileLoop: ast::WhileLoop = "while" <Spanned<Expr>> <Block>
+WhileLoop: ast::WhileLoop = "while" <Spanned<Expr>> <Block>
     => ast::WhileLoop::new(<>);
 
 
-pub ElseClause: ast::Block = "else" <Block>;
-pub Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block> <ElseClause?>
+ElseClause: ast::Block = "else" <Block>;
+Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block> <ElseClause?>
     => ast::Conditional::new(<>);
 
 
-pub Literal: ast::Literal = {
+Literal: ast::Literal = {
     "intLit" => ast::Literal::Int(<>),
     "floatLit" => ast::Literal::Float(<>),
     "boolLit" => ast::Literal::Bool(<>),
@@ -98,7 +95,7 @@ pub Literal: ast::Literal = {
     "commandLit" => ast::Literal::Command(<>),
 }
 
-pub Expr: Box<ast::Expr> = {
+Expr: Box<ast::Expr> = {
     #[precedence(level="1")]
     <Term> => <>,
 
@@ -135,8 +132,10 @@ pub Expr: Box<ast::Expr> = {
     },
 }
 
+pub ExternalExpr = Expr;
 
-pub Term: Box<ast::Expr> = {
+
+Term: Box<ast::Expr> = {
     Block => Box::new(ast::Expr::Block(<>)),
     Literal => Box::new(ast::Expr::Literal(<>)),
     Conditional => Box::new(ast::Expr::Conditional(<>)),
@@ -148,42 +147,43 @@ pub Term: Box<ast::Expr> = {
     "(" <e:Expr> ")" => e,
 }
 
-pub UnaryOperator: ast::UnaryOperator = {
+UnaryOperator: ast::UnaryOperator = {
     "!" => ast::UnaryOperator::Not,
     // TODO: add bit invert
     // "~" => ast::UnaryOperator::BitInvert,
     "-" => ast::UnaryOperator::Negate,
 }
 
-pub PrecTwoOp: BinaryOperator = {
+PrecTwoOp: BinaryOperator = {
     "*"  => BinaryOperator::Times,
     "/"  => BinaryOperator::Div,
     "%"  => BinaryOperator::Mod,
 }
 
-pub PrecThreeOp: BinaryOperator = {
+PrecThreeOp: BinaryOperator = {
     "+"  => BinaryOperator::Plus,
     "-"  => BinaryOperator::Minus,
 }
 
-pub PrecFourOp: BinaryOperator = {
+PrecFourOp: BinaryOperator = {
     "<"  => BinaryOperator::Lt,
     "<=" => BinaryOperator::Lte,
     ">"  => BinaryOperator::Gt,
     ">=" => BinaryOperator::Gte,
 }
 
-pub PrecFiveOp: BinaryOperator = {
+PrecFiveOp: BinaryOperator = {
     "==" => BinaryOperator::Eq,
     "!=" => BinaryOperator::Ne,
 }
 
-pub PrecSixOp: BinaryOperator = {
+PrecSixOp: BinaryOperator = {
     "&"  => BinaryOperator::BitAnd,
     "|"  => BinaryOperator::BitOr,
+    "^"  => BinaryOperator::BitXor,
 }
 
-pub PrecSevenOp: BinaryOperator = {
+PrecSevenOp: BinaryOperator = {
     "&&" => BinaryOperator::And,
     "||" => BinaryOperator::Or,
 }
@@ -242,6 +242,7 @@ extern {
         "#" => Token::Hash,
         "&" => Token::Ampersand,
         "|" => Token::Pipe,
+        "^" => Token::Caret,
         "!" => Token::ExclamationMark,
         "?" => Token::QuestionMark,
         "bslash" => Token::Bslash,

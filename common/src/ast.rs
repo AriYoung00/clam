@@ -47,6 +47,7 @@ pub enum BinaryOperator {
     Or,
     BitAnd,
     BitOr,
+    BitXor,
 }
 
 #[derive(Hash, Clone, Debug, PartialEq, Eq, From)]
@@ -102,6 +103,7 @@ pub enum Type {
 pub struct Conditional {
     pub cond: Span<Box<Expr>>,
     pub body: Block,
+    pub r#else: Option<Block>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
@@ -149,7 +151,7 @@ pub enum Statement {
     Assign(Assign),
     Expr(Span<Box<Expr>>),
     Break,
-    Return(Span<Box<Expr>>),
+    Return(Option<Span<Box<Expr>>>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

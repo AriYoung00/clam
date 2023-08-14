@@ -72,7 +72,10 @@ pub trait AstVisitor<CtxType, ErrorType> {
             Statement::Assign(a) => Self::visit_assign(&a, ctx),
             Statement::Expr(e)   => Self::visit_expr(&e.1, ctx),
             Statement::Break     => Self::visit_break(ctx),
-            Statement::Return(e) => Self::visit_expr(&e.1, ctx),
+            Statement::Return(e) => match e {
+                Some((_, e, _)) => Self::visit_expr(e, ctx),
+                None => Self::default()
+            }
         }
     }
 
