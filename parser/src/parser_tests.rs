@@ -46,11 +46,6 @@ mod lalrpop {
     }
 
     fn strip_stmt_loc((_, s, _): Span<Statement>) -> Span<Statement> {
-        let strip_block_loc = |Block { body, last } | Block::new(
-            body.into_iter().map(strip_stmt_loc).collect(),
-            last.map(strip_stmt_loc)
-        );
-
         let strip_fndef_loc = |FnDef { name, param_list, ret_type, body }| {
             let param_list = param_list.into_iter().map(|(id, t)|
                 (strip_loc(id), strip_option_loc(t)))
@@ -131,7 +126,8 @@ mod lalrpop {
             Expr::FnCall(f) => Expr::FnCall(strip_fncall_loc(f)),
             Expr::LambdaDef(l) => Expr::LambdaDef(strip_lambdadef_loc(l)),
             Expr::Block(b) => Expr::Block(strip_block_loc(b)),
-            Expr::Conditional(Conditional { cond, body }) => Expr::Conditional(Conditional::new(strip_expr_loc(cond), strip_block_loc(body))),
+            Expr::Conditional(Conditional { cond, body , r#else }) => Expr::Conditional(Conditional::new(strip_expr_loc(cond), strip_block_loc(body), 
+               r#else.map(strip_block_loc))),
             Expr::WhileLoop(WhileLoop { cond, body }) => Expr::WhileLoop(WhileLoop::new(strip_expr_loc(cond), strip_block_loc(body))),
             Expr::ForLoop(ForLoop { var, iter, body }) => Expr::ForLoop(ForLoop { var: strip_loc(var), iter: strip_expr_loc(iter), body: strip_block_loc(body) }),
             rest@_ => rest,
@@ -142,7 +138,7 @@ mod lalrpop {
 
     fn plex(s: &str) -> Result<Span<Box<Expr>>, ParseError<usize, Token, LexicalError>> {
         let lexer = Lexer::new(s);
-        let parser_ = parser::ExprParser::new();
+        let parser_ = parser::ExternalExprParser::new();
         let res = parser_.parse(lexer)?;
         Ok(strip_expr_loc((0, res, 0)))
     }
@@ -280,9 +276,35 @@ mod lalrpop {
                         Identifier("a".into()).null_span(),
                         b(Expr::Identifier("b".into()))
                     )).null_span()
-                ))
-            )
-        )))
+                )),
+                None,
+            ),
+            
+        )));
+
+        let expr = plex("if true { a = b } else { b = a }").unwrap();
+        assert_eq!(expr, b(
+            Conditional(self::Conditional::new(
+                b(Literal(Bool(true))),
+                Block::new(
+                    vec![],
+                    Some(
+                        Statement::Assign(Assign::new(
+                            Identifier("a".into()).null_span(),
+                            b(Expr::Identifier("b".into()))
+                        )).null_span()
+                    )),
+                Some(Block::new(
+                    vec![],
+                    Some(
+                        Statement::Assign(Assign::new(
+                            Identifier("b".into()).null_span(),
+                            b(Expr::Identifier("a".into()))
+                        )).null_span()
+                    ))),
+            ),
+            
+        )));
     }
 
     #[test]
@@ -395,7 +417,7 @@ fn thing(a, b: int) -> bool {
     #[test]
     fn test_span() {
         let expr = "if true { 5 + 5 }";
-        let res = parser::ExprParser::new()
+        let res = parser::ExternalExprParser::new()
             .parse(Lexer::new(expr)).unwrap();
         let tokens: Vec<_> = Lexer::new(expr).collect();
         println!("tokens are {tokens:?}");
