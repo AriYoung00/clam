@@ -3,6 +3,7 @@ use clam_common::ast::Type;
 use clam_common::ast::Identifier;
 use ordered_float::OrderedFloat;
 
+use std::fmt::Display;
 use std::{collections::HashMap, cmp};
 use std::sync::Arc;
 use derive_more::{Add, Sub, Div, Mul, Not, Neg, From};
@@ -143,6 +144,18 @@ pub enum ClamData {
     Empty,
 }
 
+impl Display for ClamData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClamData::UserType(_) => todo!(),
+            ClamData::String(ClamString(s)) => write!(f, "{s}"),
+            ClamData::Float(ClamFloat(float)) => write!(f, "{float}"),
+            ClamData::Int(ClamInt(int)) => write!(f, "{int}"),
+            ClamData::Bool(ClamBool(b)) => write!(f, "{b}"),
+            ClamData::Empty => write!(f, "()"),
+        }
+    }
+}
 
 impl TryFrom<&ClamData> for ClamFloat {
     type Error = ();

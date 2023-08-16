@@ -8,7 +8,7 @@ use std::{
     cell::RefCell,
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},
-    sync::{atomic::AtomicBool, Arc},
+    sync::Arc, io::Write,
 };
 
 use clam_common::ast::{
@@ -134,7 +134,9 @@ struct Ctx {
     heap: Arc<RefCell<Heap<ClamUserType>>>,
     vars: HashMap<Identifier, ClamData>,
     funcs: HashMap<Identifier, FnDef>,
-    current_loop: Option<Arc<AtomicBool>>,
+
+    // TODO: figure out a better way to represent this
+    stdout: Arc<RefCell<dyn Write>>,
 }
 
 #[allow(dead_code)]
@@ -148,13 +150,64 @@ impl Ctx {
             heap: self.heap.clone(),
             vars,
             funcs: self.funcs.clone(),
-            current_loop: self.current_loop.clone(),
+            stdout: self.stdout.clone(),
         }
     }
 }
 
+
+fn call_user_fn(def: &FnDef, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) -> Result<ClamData> {
+    let mut arg_vals = Vec::new();
+    for arg in args {
+        arg_vals.push(eval_expr(arg, ctx)?);
+    }
+
+    let mappings = def
+        .param_list
+        .iter()
+        .map(|((_, id, _), _)| id.clone())
+        .zip(arg_vals.into_iter());
+    let mut new_vars = HashMap::new();
+    new_vars.extend(mappings);
+
+    let mut new_ctx = ctx.with_vars(new_vars);
+
+    match eval_expr(&def.body, &mut new_ctx) {
+        Return(val) => Ok(val),
+        other => other,
+    }
+}
+
+fn call_builtin_fn(id: &Identifier, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) -> Result<ClamData> {
+    match id.0.as_ref() {
+        "println" => {
+            let mut args = args.iter();
+            if let Some(arg) = args.next() {
+                let res = eval_expr(arg, ctx)?;
+                write!(ctx.stdout.borrow_mut(), "{}", res).unwrap()
+            }
+
+            for arg in args {
+                let res = eval_expr(arg, ctx)?;
+                write!(ctx.stdout.borrow_mut(), " {}", res).unwrap();
+            }
+            write!(ctx.stdout.as_ref().borrow_mut(), "\n").unwrap();
+            Ok(ClamData::Empty)
+        }
+        _ => unreachable!("should not be able to call_builtin_fn with nonexistent builtin"),
+    }
+}
+
+// stupid hack
+fn is_builtin_fn(id: &Identifier) -> bool {
+    match id.0.as_ref() {
+        "println" => true,
+        _ => false,
+    }
+}
+
 #[allow(dead_code)]
-fn eval_expr<'b>(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
+fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
     let (start, exp, end) = exp;
     let (start, end) = (*start, *end);
 
@@ -210,31 +263,17 @@ fn eval_expr<'b>(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
 
         Expr::FnCall(FnCall { id, args }) => {
             let (start, id, end) = id;
-
-            let mut arg_vals = Vec::new();
-            for arg in args {
-                arg_vals.push(eval_expr(arg, ctx)?);
+            if let Some(def) = ctx.funcs.get(id) {
+                // TODO: figure out if clone here screws something up
+                call_user_fn(def, args, &mut ctx.clone())
             }
-
-            let Some(def) = ctx.funcs.get(&id) else {
-                return FunctionNotFound.with_loc(*start, *end);
-            };
-
-            let mappings = def
-                .param_list
-                .iter()
-                .map(|((_, id, _), _)| id.clone())
-                .zip(arg_vals.into_iter());
-            let mut new_vars = ctx.vars.clone();
-            new_vars.extend(mappings);
-
-            let mut new_ctx = ctx.with_vars(new_vars);
-
-            match eval_expr(&def.body, &mut new_ctx) {
-                Return(val) => Ok(val),
-                other => other,
+            else if is_builtin_fn(id) {
+                call_builtin_fn(id, args, ctx)
             }
-        }
+            else {
+                ErrorSource::FunctionNotFound.with_loc(*start, *end)
+            }
+        },
 
         Expr::LambdaDef(_) => todo!(),
 
@@ -344,6 +383,10 @@ mod test {
         (0, Box::new(Expr::BinOp(BinOp { op, lhs, rhs })), 0)
     }
 
+    fn fun_call<const NARGS: usize>(id: &str, args: [Span<Box<Expr>>; NARGS]) -> Span<Box<Expr>> {
+        (0, Box::new(Expr::FnCall(FnCall { id: (0, id.into(), 0), args: args.into() })), 0)
+    }
+
     fn cint_lit(i: i64) -> Span<Box<Expr>> {
         (0, Box::new(Expr::Literal(Literal::Int(i))), 0)
     }
@@ -357,9 +400,23 @@ mod test {
         use BinaryOperator::*;
         let ast = bin_op(Plus, cint_lit(1), cint_lit(2));
         let heap = Arc::new(RefCell::new(Heap::default()));
-        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), None);
+        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), Arc::new(RefCell::new(Vec::new())));
 
         let res = eval_expr(&ast, &mut ctx).unwrap();
         assert_eq!(res, cint_data(3));
+    }
+
+    #[test]
+    fn eval_print_expr() {
+        let ast = fun_call("println", [bin_op(BinaryOperator::Plus, cint_lit(3), cint_lit(7))]);
+
+        let heap = Arc::new(RefCell::new(Heap::default()));
+        let stdout = Arc::new(RefCell::new(Vec::<u8>::new()));
+        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), stdout.clone());
+        let res = eval_expr(&ast, &mut ctx).unwrap();
+
+        assert_eq!(res, ClamData::Empty);
+        let expected: Vec<u8> = "10\n".into();
+        assert_eq!(stdout.borrow().as_slice(), expected);
     }
 }
