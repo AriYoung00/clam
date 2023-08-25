@@ -5,6 +5,8 @@ version = "0.1.0"
 [dependencies]
 clam_parser = { path = "parser" }
 clam_common = { path = "common" }
+clam_interpreter = { path = "interpreter" }
+im-rc = "15.1.0"
 
 [workspace]
 members = [
