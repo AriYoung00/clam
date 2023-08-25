@@ -1,7 +1,7 @@
 #![feature(if_let_guard)]
 #![feature(try_trait_v2)]
 
-mod data;
+pub mod data;
 mod type_checker;
 
 use std::{
@@ -130,13 +130,13 @@ impl<T> ErrSpan for Result<T> {
 }
 
 #[derive(Constructor, Clone)]
-struct Ctx {
-    heap: Arc<RefCell<Heap<ClamUserType>>>,
-    vars: HashMap<Identifier, ClamData>,
-    funcs: HashMap<Identifier, FnDef>,
+pub struct Ctx {
+    pub heap: Arc<RefCell<Heap<ClamUserType>>>,
+    pub vars: HashMap<Identifier, ClamData>,
+    pub funcs: HashMap<Identifier, FnDef>,
 
     // TODO: figure out a better way to represent this
-    stdout: Arc<RefCell<dyn Write>>,
+    pub stdout: Arc<RefCell<Vec<u8>>>,
 }
 
 #[allow(dead_code)]
@@ -207,7 +207,7 @@ fn is_builtin_fn(id: &Identifier) -> bool {
 }
 
 #[allow(dead_code)]
-fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
+pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
     let (start, exp, end) = exp;
     let (start, end) = (*start, *end);
 
