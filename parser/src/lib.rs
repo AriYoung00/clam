@@ -7,4 +7,7 @@ mod lexer_tests;
 mod parser_tests;
 
 mod tokens;
+use lalrpop_util::lalrpop_mod;
 pub use tokens::Token;
+
+lalrpop_mod!(pub parser);
