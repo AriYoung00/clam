@@ -2,11 +2,11 @@ mod lalrpop {
     use crate::lexer::*;
     use crate::tokens::*;
     use clam_common::ast::*;
-    use lalrpop_util::{lalrpop_mod, ParseError};
+    use lalrpop_util::ParseError;
     use ordered_float::OrderedFloat;
-    lalrpop_mod!(pub parser);
 
     use crate::lexer::Lexer;
+    use crate::parser;
 
     trait DerefInner {
         type Target: Sized;
@@ -305,6 +305,54 @@ mod lalrpop {
             ),
             
         )));
+    }
+    
+    fn binop(op: BinaryOperator, lhs: Span<Box<Expr>>, rhs: Span<Box<Expr>>) -> Span<Box<Expr>> {
+        b(Expr::BinOp(BinOp { op, lhs, rhs }))
+    }
+
+    fn conditional(cond: Span<Box<Expr>>, body: Block, r#else: Option<Block>) -> Span<Box<Expr>> {
+        b(Expr::Conditional(Conditional { cond, body, r#else }))
+    }
+
+    fn ident(name: &str) -> Span<Box<Expr>> {
+        b(Expr::Identifier(name.into()))
+    }
+
+    trait AsLiteral {
+        fn as_literal(self) -> Literal;
+    }
+
+    impl AsLiteral for i64 {
+        fn as_literal(self) -> Literal {
+            Literal::Int(self)
+        }
+    }
+
+    fn literal<T>(lit: T) -> Span<Box<Expr>>
+    where T: AsLiteral {
+        b(Expr::Literal(lit.as_literal()))
+    }
+
+    fn block<const N: usize>(body: [Span<Statement>; N], last: Option<Span<Statement>>) -> Block {
+        Block { body: body.into(), last }
+    }
+
+    fn assign(lhs: &str, rhs: Span<Box<Expr>>) -> Span<Statement> {
+        Statement::Assign(Assign { id: (0, Identifier(lhs.to_string()), 0), expr: rhs }).null_span()
+    }
+
+    #[test]
+    fn test_complex_conditional() {
+        let expr = plex("if a == 1 || b == 2 { c = a + b; }").unwrap();
+        use BinaryOperator::*;
+        assert_eq!(expr, conditional(
+            binop(Or, 
+                binop(Eq, ident("a"), literal(1)), 
+                binop(Eq, ident("b"), literal(2))),
+            block([assign("c", binop(Plus, ident("a"), ident("b")))], None), 
+            None))
+
     }
 
     #[test]
