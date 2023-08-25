@@ -124,8 +124,15 @@ Expr: Box<ast::Expr> = {
     <lhs:Spanned<Expr>> <op:PrecSixOp> <rhs:Spanned<Expr>> => {
         Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
     },
+
+    #[precedence(level="7")] #[assoc(side="left")]
+    <lhs:Spanned<Expr>> <op:PrecSevenOp> <rhs:Spanned<Expr>> => {
+        Box::new(ast::Expr::BinOp(ast::BinOp::new(op, lhs, rhs)))
+    },
+
+
     // lambda def
-    #[precedence(level="7")]
+    #[precedence(level="8")]
     // "|" <Comma<Param>> "|" <Expr> => Box::new(ast::Expr::LambdaDef(<>)),
     "bslash" <Comma<Param>> "=>" <Spanned<Expr>> => {
         Box::new(ast::Expr::LambdaDef(ast::LambdaDef::new(<>)))
