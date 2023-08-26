@@ -1,4 +1,5 @@
 use derive_more::{From, Constructor};
+use either::Either;
 use ordered_float::OrderedFloat;
 
 pub type SpannedRes<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
@@ -31,6 +32,7 @@ pub enum Literal {
     Bool(bool),
     String(String),
     Command(String),
+    Struct(Span<Identifier>, Vec<(Span<Identifier>, Span<Box<Expr>>)>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -186,5 +188,4 @@ pub struct StructDef {
     fields: Vec<(Span<Identifier>, Option<Span<Type>>)>,
 }
 
-// pub struct Mod(pub Vec<Either<FnDef, StructDef>>);
-pub struct Mod(pub Vec<FnDef>);
+pub struct Mod(pub Vec<Either<FnDef, StructDef>>);

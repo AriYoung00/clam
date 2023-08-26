@@ -5,6 +5,7 @@ use clam_common::{
     }
 };
 use ordered_float::OrderedFloat;
+use either::Either;
 use crate::lexer::LexicalError;
 use crate::Token;
 
@@ -87,6 +88,11 @@ Conditional: ast::Conditional = "if" <Spanned<Expr>> <Block> <ElseClause?>
     => ast::Conditional::new(<>);
 
 
+StructLiteralField: (ast::Span<ast::Identifier>, ast::Span<Box<ast::Expr>>) = 
+    <Spanned<Identifier>> ":" <Spanned<Expr>> => (<>);
+StructLiteral: ast::Literal = "." <Spanned<Identifier>> "{"
+    <Comma<StructLiteralField>> "}" => ast::Literal::Struct(<>);
+
 Literal: ast::Literal = {
     "intLit" => ast::Literal::Int(<>),
     "floatLit" => ast::Literal::Float(<>),
@@ -137,6 +143,10 @@ Expr: Box<ast::Expr> = {
     "bslash" <Comma<Param>> "=>" <Spanned<Expr>> => {
         Box::new(ast::Expr::LambdaDef(ast::LambdaDef::new(<>)))
     },
+
+    // struct def
+    #[precedence(level="9")] #[assoc(side="right")]
+    StructLiteral => Box::new(ast::Expr::Literal(<>)),
 }
 
 pub ExternalExpr = Expr;
@@ -195,7 +205,12 @@ PrecSevenOp: BinaryOperator = {
     "||" => BinaryOperator::Or,
 }
 
-pub Module: ast::Mod = FnDef+
+TopLevelStmt: Either<ast::FnDef, ast::StructDef> = {
+    FnDef => Either::Left(<>),
+    StructDef => Either::Right(<>),
+}
+
+pub Module: ast::Mod = TopLevelStmt+
     => ast::Mod(<>);
 
 extern {
