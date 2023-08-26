@@ -408,7 +408,7 @@ fn thing(a, b: int)
             name: Identifier("thing".into()).null_span(),
             param_list: vec![
                 (Identifier("a".into()).null_span(), None), 
-                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int).null_span()))
+                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int(IntType)).null_span()))
             ],
             ret_type: None,
             body: b(Expr::Identifier("a".into()))
@@ -422,9 +422,9 @@ fn thing(a, b: int) -> bool
             name: Identifier("thing".into()).null_span(),
             param_list: vec![
                 (Identifier("a".into()).null_span(), None), 
-                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int).null_span()))
+                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int(IntType)).null_span()))
             ],
-            ret_type: Some(Type::Primitive(Primitive::Bool).null_span()),
+            ret_type: Some(Type::Primitive(Primitive::Bool(BoolType)).null_span()),
             body: b(Expr::BinOp(BinOp::new(
                 BinaryOperator::Eq,
                 b(Expr::Identifier("a".into())),
@@ -442,9 +442,9 @@ fn thing(a, b: int) -> bool {
             name: Identifier("thing".into()).null_span(),
             param_list: vec![
                 (Identifier("a".into()).null_span(), None), 
-                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int).null_span()))
+                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Int(IntType)).null_span()))
             ],
-            ret_type: Some(Type::Primitive(Primitive::Bool).null_span()),
+            ret_type: Some(Type::Primitive(Primitive::Bool(BoolType)).null_span()),
             body: b(Expr::Block(Block::new(vec![
                 Statement::Assign(Assign::new(Identifier("a".into()).null_span(), b(Expr::Identifier("b".into())))).null_span(),
             ],

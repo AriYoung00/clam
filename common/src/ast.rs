@@ -6,12 +6,22 @@ pub type Spanned<T, Loc> = (Loc, T, Loc);
 pub type Span<T> = Spanned<T, usize>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IntType;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FloatType;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoolType;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StringType;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommandType;
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Primitive {
-    Int,
-    Float,
-    Bool,
-    String,
-    Command
+    Int(IntType),
+    Float(FloatType),
+    Bool(BoolType),
+    String(StringType),
+    Command(CommandType)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -91,11 +101,13 @@ pub struct FunctionType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Any;
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Primitive(Primitive),
     Name(Identifier),
     Sum(Vec<Type>),
-    Any,
+    Any(Any),
     Function(FunctionType),
 }
 

@@ -25,11 +25,11 @@ Spanned<T>: ast::Span<T> = <@L> <T> <@R> => (<>);
 Identifier: ast::Identifier = "identifier" => <>.into();
 
 Primitive: ast::Primitive = {
-    "int"    => ast::Primitive::Int,
-    "float"  => ast::Primitive::Float,
-    "bool"   => ast::Primitive::Bool,
-    "string" => ast::Primitive::String,
-    "cmd"    => ast::Primitive::Command,
+    "int"    => ast::Primitive::Int(ast::IntType),
+    "float"  => ast::Primitive::Float(ast::FloatType),
+    "bool"   => ast::Primitive::Bool(ast::BoolType),
+    "string" => ast::Primitive::String(ast::StringType),
+    "cmd"    => ast::Primitive::Command(ast::CommandType),
 }
 
 Type: ast::Type = {
