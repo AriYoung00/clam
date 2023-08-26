@@ -76,6 +76,13 @@ struct A {
   n: int,
 }
 
+struct Thing {
+  field: int,
+}
+
+let a: Thing = .Thing { field = 5, }
+let a: Thing = .{ field = 5 }
+
 impl A {
     fn a(s: string, n: int) {
         // do stuff
