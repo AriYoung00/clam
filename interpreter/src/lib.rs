@@ -1,5 +1,6 @@
 #![feature(if_let_guard)]
 #![feature(try_trait_v2)]
+#![feature(pointer_byte_offsets)]
 
 pub mod data;
 mod type_checker;
@@ -13,7 +14,7 @@ use std::{
 
 use clam_common::ast::{
     Assign, BinOp, Block, Conditional, Expr, FnCall, FnDef, Identifier, Let, Span, Statement, UnOp,
-    WhileLoop,
+    WhileLoop, StructDef,
 };
 use data::{
     ClamBool, ClamData, ClamRuntimeError, ClamString, ClamUserType, ErrorSource::*, GcRef, Heap,
@@ -134,6 +135,7 @@ pub struct Ctx {
     pub heap: Arc<RefCell<Heap<ClamUserType>>>,
     pub vars: HashMap<Identifier, ClamData>,
     pub funcs: HashMap<Identifier, FnDef>,
+    pub structs: HashMap<Identifier, StructDef>,
 
     // TODO: figure out a better way to represent this
     pub stdout: Arc<RefCell<Vec<u8>>>,
@@ -150,6 +152,7 @@ impl Ctx {
             heap: self.heap.clone(),
             vars,
             funcs: self.funcs.clone(),
+            structs: self.structs.clone(),
             stdout: self.stdout.clone(),
         }
     }
@@ -208,18 +211,20 @@ fn is_builtin_fn(id: &Identifier) -> bool {
 
 #[allow(dead_code)]
 pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
+    use clam_common::ast::Literal;
     let (start, exp, end) = exp;
     let (start, end) = (*start, *end);
 
     match exp.as_ref() {
         Expr::Literal(lit) => Ok(match lit {
-            clam_common::ast::Literal::Int(i) => ClamData::Int((*i).into()),
-            clam_common::ast::Literal::Float(f) => ClamData::Float((*f).into()),
-            clam_common::ast::Literal::Bool(b) => ClamData::Bool((*b).into()),
-            clam_common::ast::Literal::String(s) => {
+            Literal::Int(i) => ClamData::Int((*i).into()),
+            Literal::Float(f) => ClamData::Float((*f).into()),
+            Literal::Bool(b) => ClamData::Bool((*b).into()),
+            Literal::String(s) => {
                 ClamData::String(ClamString((s.clone()).into()))
             }
-            clam_common::ast::Literal::Command(_c) => todo!("Evaluate commands"),
+            Literal::Command(_c) => todo!("Evaluate commands"),
+            Literal::Struct(_, _) => todo!("Evaluate struct literal"),
         }),
 
         Expr::BinOp(BinOp { op, lhs, rhs }) => {
@@ -400,7 +405,9 @@ mod test {
         use BinaryOperator::*;
         let ast = bin_op(Plus, cint_lit(1), cint_lit(2));
         let heap = Arc::new(RefCell::new(Heap::default()));
-        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), Arc::new(RefCell::new(Vec::new())));
+        let stdout = Arc::new(RefCell::new(Vec::<u8>::new()));
+        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
+                                    stdout.clone());
 
         let res = eval_expr(&ast, &mut ctx).unwrap();
         assert_eq!(res, cint_data(3));
@@ -412,7 +419,8 @@ mod test {
 
         let heap = Arc::new(RefCell::new(Heap::default()));
         let stdout = Arc::new(RefCell::new(Vec::<u8>::new()));
-        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), stdout.clone());
+        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
+                                    stdout.clone());
         let res = eval_expr(&ast, &mut ctx).unwrap();
 
         assert_eq!(res, ClamData::Empty);
