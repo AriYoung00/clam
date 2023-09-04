@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use derive_more::Constructor;
 use clam_common::ast::*;
-use clam_common::ast::Type::Primitive;
 use clam_common::ast_visitor::*;
 
-#[derive(Constructor)]
+#[derive(Clone, Constructor, Debug)]
 struct TypeCheckerCtx {
     vars: HashMap<Identifier, Type>,
     fns: HashMap<Identifier, Option<Type>>,
@@ -16,20 +15,21 @@ impl TypeCheckerCtx {
     }
 }
 
-#[derive(Constructor)]
+#[derive(Constructor, Debug)]
 struct TypeCheckerOutput {
     t: Option<Type>,
     ctx: TypeCheckerCtx,
 }
 
+#[derive(Debug)]
 enum TypeCheckerErrorSource {
-    ExpectedBooleanExpr,
+    ExpectedBooleanExpr(Option<Type>),
+    ExpectedIntegerExpr(Option<Type>),
     ExpectedNumericalType(Option<Type>),
     MismatchedTypes(Option<Type>, Option<Type>),
-    UndefinedIdentifier,
 }
 
-#[derive(Constructor)]
+#[derive(Constructor, Debug)]
 struct TypeCheckerError {
     loc: (usize, usize),
     src: TypeCheckerErrorSource,
@@ -54,13 +54,16 @@ impl TypeChecker {
 
         match cond_out.t.as_ref() {
             Some(Type::Primitive(Primitive::Bool(BoolType))) => Self::visit_block(&body, cond_out.ctx),
-            _ => Err(TypeCheckerError::from_span(&cond, TypeCheckerErrorSource::ExpectedBooleanExpr))
+            _ => Err(TypeCheckerError::from_span(
+                &cond,
+                TypeCheckerErrorSource::ExpectedBooleanExpr(cond_out.t)
+            ))
         }
     }
 
     /// Check if two types are equivalent
     fn try_type_eq(t1: Option<&Type>, t2: Option<&Type>) -> Result<Option<Type>, ()> {
-        use Type::*;
+        use Type::{Function, Name, Primitive, Sum};
         use clam_common::ast::Primitive::*;
 
         match (t1, t2) {
@@ -74,9 +77,10 @@ impl TypeChecker {
             (Some(Primitive(p1)), Some(Primitive(p2)))
             if std::mem::discriminant(p1) == std::mem::discriminant(p2) => Ok(t1.cloned()),
             (Some(Name(n1)), Some(Name(n2))) if n1 == n2 => Ok(t1.cloned()),
-            (Some(Sum(v1a)), Some(Sum(v2))) => todo!(),
-            (Some(Type::Any(Primitive::Any(Any))), Some(Any(Any))) => Ok(t1.cloned()),
-            (Some(Function(f1)), Some(Function(f2))) => todo!(),
+            (Some(Sum(v1)), Some(Sum(v2))) if v1 == v2 => Ok(t1.cloned()),
+            (Some(Type::Any(Any)), Some(Type::Any(Any))) => Ok(t1.cloned()),
+            (Some(Function(f1)), Some(Function(f2)))
+            if f1 == f2 => Ok(t1.cloned()),
             _ => Err(()),
         }
     }
@@ -207,7 +211,17 @@ impl AstVisitor<TypeCheckerCtx, TypeCheckerError> for TypeChecker {
     }
 
     fn visit_block(b: &Block, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
-        todo!()
+        let new_ctx = b.body.iter().try_fold(ctx.clone(), |ctx, (_, stmt, _)| {
+            Self::visit_statement(stmt, ctx).map(|out| out.ctx)
+        })?;
+
+        match b.last.as_ref() {
+            Some((_, stmt, _)) => {
+                let out = Self::visit_statement(stmt, new_ctx)?;
+                Ok(TypeCheckerOutput::new(out.t, ctx))
+            },
+            None => Ok(TypeCheckerOutput::new(None, ctx)),
+        }
     }
 
     fn visit_bin_op(b: &BinOp, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
@@ -227,11 +241,17 @@ impl AstVisitor<TypeCheckerCtx, TypeCheckerError> for TypeChecker {
             | BinaryOperator::Times
             | BinaryOperator::Div =>
                 match (Self::is_numeric(lhs_type), Self::is_numeric(rhs_type)) {
-                    (true, true) => match (lhs_type, rhs_type) {
-                        (Some(Primitive(Float(FloatType))), _) | (_, Some(Primitive(Float(FloatType))))=>
-                            Ok(TypeCheckerOutput::new(Some(Primitive(Float(FloatType))), rhs_out.ctx)),
-                        _ => Ok(TypeCheckerOutput::new(Some(Primitive(Int(IntType))), rhs_out.ctx)),
-                    },
+                    (true, true) => Ok(TypeCheckerOutput::new(
+                        Some(Primitive(
+                            match (lhs_type, rhs_type) {
+                                (Some(Primitive(Float(FloatType))), _)
+                                | (_, Some(Primitive(Float(FloatType)))) =>
+                                    Float(FloatType),
+                                _ => Int(IntType),
+                            }
+                        )),
+                        rhs_out.ctx
+                    )),
                     (true, _) => Err(TypeCheckerError::from_span(
                         &b.rhs,
                         TypeCheckerErrorSource::ExpectedNumericalType(rhs_out.t)
@@ -303,7 +323,42 @@ impl AstVisitor<TypeCheckerCtx, TypeCheckerError> for TypeChecker {
     }
 
     fn visit_un_op(u: &UnOp, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
-        todo!()
+        use Type::Primitive;
+        use clam_common::ast::Primitive::{Bool, Int};
+
+        let out = Self::visit_expr(&u.rhs.1, ctx)?;
+        let out_type = out.t.as_ref();
+
+        match u.op {
+            UnaryOperator::Not => match out_type {
+                Some(Primitive(Bool(BoolType))) =>
+                    Ok(TypeCheckerOutput::new(Some(Primitive(Bool(BoolType))), out.ctx)),
+                _ => Err(TypeCheckerError::from_span(
+                    &u.rhs,
+                    TypeCheckerErrorSource::ExpectedBooleanExpr(out_type.cloned())
+                )),
+            },
+
+            UnaryOperator::BitInvert => match out_type {
+                Some(Primitive(Int(IntType))) =>
+                    Ok(TypeCheckerOutput::new(Some(Primitive(Int(IntType))), out.ctx)),
+                _ => Err(TypeCheckerError::from_span(
+                    &u.rhs,
+                    TypeCheckerErrorSource::ExpectedIntegerExpr(out_type.cloned())
+                )),
+            },
+
+            UnaryOperator::Negate =>
+                if Self::is_numeric(out_type) {
+                    Ok(TypeCheckerOutput::new(out_type.cloned(), out.ctx))
+                }
+                else {
+                    Err(TypeCheckerError::from_span(
+                        &u.rhs,
+                        TypeCheckerErrorSource::ExpectedNumericalType(out_type.cloned())
+                    ))
+                }
+        }
     }
 
     fn visit_fn_call(f: &FnCall, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
@@ -312,7 +367,19 @@ impl AstVisitor<TypeCheckerCtx, TypeCheckerError> for TypeChecker {
     }
 
     fn visit_lambda_def(l: &LambdaDef, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
-        todo!()
+        let mut lambda_ctx = ctx.clone();
+        lambda_ctx.vars.extend(
+            l.params.iter().map(|((_, id, _), t)| (id.clone(), t.as_ref().unwrap().1.clone()))
+        );
+
+        let out = Self::visit_expr(&l.body.1, lambda_ctx)?;
+        Ok(TypeCheckerOutput::new(
+            Some(Type::Function(FunctionType::new(
+                l.params.iter().map(|(_, t)| t.as_ref().unwrap().1.clone()).collect(),
+                out.t.map(|t| Box::new(t))
+            ))),
+            ctx
+        ))
     }
 
     fn visit_conditional(c: &Conditional, ctx: TypeCheckerCtx)
@@ -326,5 +393,56 @@ impl AstVisitor<TypeCheckerCtx, TypeCheckerError> for TypeChecker {
 
     fn visit_for_loop(f: &ForLoop, ctx: TypeCheckerCtx) -> Result<Self::OutputType, TypeCheckerError> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use ordered_float::OrderedFloat;
+    use clam_common::ast::*;
+    use clam_common::ast_visitor::AstVisitor;
+    use crate::data::ClamData::String;
+    use crate::type_checker::*;
+
+    fn type_check_expr(ast: &Expr) -> Result<TypeCheckerOutput, TypeCheckerError> {
+        TypeChecker::visit_expr(ast, TypeCheckerCtx::empty())
+    }
+
+    #[test]
+    fn test_literal() {
+        use Literal::*;
+
+        let ast = Expr::Literal(Int(0));
+        let out = type_check_expr(&ast);
+        assert_eq!(out.unwrap().t, Some(Type::Primitive(Primitive::Int(IntType))));
+
+        let ast = Expr::Literal(Float(OrderedFloat::from(0.0)));
+        let out = type_check_expr(&ast);
+        assert_eq!(out.unwrap().t, Some(Type::Primitive(Primitive::Float(FloatType))));
+
+        let ast = Expr::Literal(Bool(false));
+        let out = type_check_expr(&ast);
+        assert_eq!(out.unwrap().t, Some(Type::Primitive(Primitive::Bool(BoolType))));
+
+        let ast = Expr::Literal(String("hello world".to_string()));
+        let out = type_check_expr(&ast);
+        assert_eq!(out.unwrap().t, Some(Type::Primitive(Primitive::String(StringType))));
+
+        let ast = Expr::Literal(Command("hello world".to_string()));
+        let out = type_check_expr(&ast);
+        assert_eq!(out.unwrap().t, Some(Type::Primitive(Primitive::Command(CommandType))));
+
+        // TODO: struct literal
+    }
+
+    #[test]
+    fn test_bin_op_plus() {
+        let ast = Expr::BinOp(BinOp::new(
+            BinaryOperator::Plus,
+            (0, Box::new(Expr::Literal(Literal::Int(1))), 1),
+            (2, Box::new(Expr::Literal(Literal::Int(1))), 3)
+        ));
+        let out = type_check_expr(&ast);
+        assert_eq!(out.unwrap().t, Some(Type::Primitive(Primitive::Int(IntType))));
     }
 }
