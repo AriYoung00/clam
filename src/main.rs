@@ -35,7 +35,6 @@ impl From<std::io::Error> for ClamInterpreterError {
 fn interpret_file(name: &str) -> Result<String, ClamInterpreterError> {
     use std::fs;
     use im_rc::HashMap;
-    println!("interpreting {name}");
 
     let contents = fs::read_to_string(name).unwrap();
     let token_stream = Lexer::new(&contents);
@@ -44,7 +43,7 @@ fn interpret_file(name: &str) -> Result<String, ClamInterpreterError> {
 
     let mut main_idx = -1_i32;
     for (idx, func) in clam_mod.iter().enumerate() {
-        if func.name.1.0.as_str() == "main" {
+        if func.clone().unwrap_left().name.1.0.as_str() == "main" {
             main_idx = idx as i32;
             break;
         }
@@ -56,9 +55,10 @@ fn interpret_file(name: &str) -> Result<String, ClamInterpreterError> {
     
     let main_func = clam_mod.remove(main_idx as usize);
     let funcs: HashMap<Identifier, FnDef> = clam_mod.into_iter()
-        .map(|func| (func.name.1.clone(), func))
+        .map(|func| (func.clone().unwrap_left().name.1.clone(), func.unwrap_left()))
         .collect();
     let vars = HashMap::new();
+    let structs = HashMap::new();
     let heap = Arc::new(RefCell::new(Heap::default()));
     let stdout_vec = Vec::with_capacity(10000);
     let stdout = Arc::new(RefCell::new(stdout_vec));
@@ -67,10 +67,11 @@ fn interpret_file(name: &str) -> Result<String, ClamInterpreterError> {
         heap,
         vars,
         funcs,
+        structs,
         stdout,
     };
 
-    let _main_res = eval_expr(&main_func.body, &mut ctx).unwrap();
+    let _main_res = eval_expr(&main_func.unwrap_left().body, &mut ctx).unwrap();
     let Ctx{ stdout, .. } = ctx;
     Ok(stdout.take().into_iter().map(|c| char::from(c)).collect())
 }
