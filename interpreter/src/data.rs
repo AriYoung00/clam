@@ -4,6 +4,8 @@ use clam_common::ast::Identifier;
 use ordered_float::OrderedFloat;
 
 use std::fmt::Display;
+use std::marker::PhantomData;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::{collections::HashMap, cmp};
 use std::sync::Arc;
 use derive_more::{Add, Sub, Div, Mul, Not, Neg, From};
@@ -58,7 +60,7 @@ enum GcStatus {
 pub struct Heap<T>(Vec<T>);
 impl<T> Default for Heap<T> {
     fn default() -> Self {
-        Self(Vec::with_capacity(1000))
+        Self(Vec::with_capacity(10000))
     }
 }
 
@@ -80,6 +82,139 @@ pub struct GcRef<T> {
     idx: usize,
     data: *mut T,
 }
+
+/// This heap implements a manual memory allocator. It can take ownership of any type and
+/// move it to a garbage-collected heap space. In order to keep track of the garbage collection status of each
+/// heap slot, each heap slot will be immediately preceded by a HeapHeader. Thus, memory will end up looking
+/// something like this:
+/// [<Header><Padding?><Data...><Header><Padding?><Data...> ....]
+/// 
+/// Since HeapHeader is repr(packed), it has no alignment requirements, and can immediately follow whatever
+/// data precedes it in the heap. In order to ensure alignment of contained values in memory, HeapHeader also
+/// contains a field `padding_len_bytes`, which represents the number of bytes which must be skipped
+/// between the header and subsequent data in order to ensure proper alignment of the following data.
+pub struct NewHeap {
+    base_addr: *mut u8,
+    top: *mut u8,
+    size: usize,
+}
+impl Default for NewHeap {
+    fn default() -> Self {
+        use std::alloc::{Layout, alloc};
+        let size = 1_000_000_usize;
+        // TODO: Figure out if we want to align more carefully here
+        let layout = Layout::from_size_align(size, 2)
+            .expect("Unable to properly layout ");
+        let base_addr = unsafe {
+            alloc(layout)
+        };
+
+        Self {
+            base_addr,
+            top: base_addr,
+            size
+        }
+    }
+}
+
+#[repr(packed)]
+pub struct HeapHeader<T> {
+    is_marked: bool,
+    new_addr: Option<*mut u8>,
+    padding_len_bytes: usize,
+    data_type: PhantomData<T>,
+}
+pub struct HeapData<T> {
+    pub refcnt: AtomicUsize,
+    pub data: T,
+}
+
+impl NewHeap {
+    pub fn move_to_heap<T: Sized>(&mut self, data: T) -> NewGcRef<T> {
+        let start_addr = self.top;
+
+        // safety: we manually ensure the alignment of data after move using some pointer math
+        let (data_addr, header_addr, new_top) = unsafe {
+            let header_addr = start_addr as *mut HeapHeader<T>;
+            let header_end = header_addr.offset(1) as *mut u8;
+            let req_offset = header_end.align_offset(std::mem::align_of::<HeapData<T>>());
+
+            if req_offset == usize::MAX {
+                panic!("Unable to align pointer in heap allocation!");
+            }
+
+            let data_addr = header_end.offset(req_offset as isize) as *mut HeapData<T>;
+            let new_top = data_addr.offset(1) as *mut u8;
+            if self.base_addr.byte_offset_from(new_top).abs() as usize > self.size {
+                panic!("Out of heap space!")
+            }
+
+            *header_addr = HeapHeader {
+                is_marked: false,
+                new_addr: None,
+                padding_len_bytes: req_offset,
+                data_type: PhantomData,
+            };
+            
+            *data_addr = HeapData {
+                refcnt: AtomicUsize::new(0),
+                data,
+            };
+
+            (data_addr, header_addr, new_top)
+        };
+
+        self.top = new_top;
+
+        NewGcRef { data: data_addr, header: header_addr }
+    }
+}
+pub struct NewGcRef<T> {
+    pub(super) data:   *mut HeapData<T>,
+    pub(super) header: *mut HeapHeader<T>,
+}
+
+pub struct GcBorrow<'a, T> {
+    counter: &'a AtomicUsize,
+    data: &'a T,
+}
+impl<'a, T> Drop for GcBorrow<'a, T> {
+    fn drop(&mut self) {
+        self.counter.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+
+impl<T> NewGcRef<T> {
+    pub unsafe fn borrow<'a>(&self) -> GcBorrow<'a, T> {
+        let data = self.data.as_ref().unwrap();
+        data.refcnt.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        GcBorrow{
+            counter: &data.refcnt,
+            data: &data.data
+        }
+    }
+
+    pub fn mutate<FnType, RetType>(&self, mutator: FnType) -> Result<RetType>
+    where FnType: FnOnce(&mut T) -> RetType {
+        let data = unsafe { self.data.as_ref().unwrap() };
+        let data = if data.refcnt.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+            unsafe { self.data.as_mut().unwrap() }
+        }
+        else {
+            eprintln!("Unable to acquire mutable reference to data, this should not happen!");
+            return ErrorSource::DivisionByZero.empty_loc();
+        };
+
+        Ok(mutator(&mut data.data))
+    }
+
+    // todo:
+    // fn mutate(&self, FnOnce(&mut T))
+    // fn can_mutate(&self)
+    // fn swap(T)
+}
+
 
 impl<T> PartialEq for GcRef<T>
 where T: PartialEq {
@@ -429,7 +564,7 @@ impl std::ops::BitXor for ClamData {
 
 #[cfg(test)]
 mod test {
-    use crate::data::{ClamData, ClamFloat};
+    use crate::data::{ClamData, ClamFloat, NewGcRef, NewHeap};
 
     use super::ClamInt;
 
