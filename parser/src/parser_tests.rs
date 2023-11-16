@@ -151,6 +151,27 @@ mod lalrpop {
         Ok(res)
     }
 
+
+    fn plex_struct(s: &str) -> Result<Vec<StructDef>, ParseError<usize, Token, LexicalError>> {
+        let lexer = Lexer::new(s);
+        let parser_ = parser::ModuleParser::new();
+        let res = parser_.parse(lexer)?;
+        let structs = res.0.into_iter()
+            .filter(|e| e.is_right())
+            .map(|e| e.unwrap_right())
+            .map(|StructDef{ name: (_, name, _), fields }| 
+                StructDef{ 
+                    name: (0, name, 0), 
+                    fields: fields.into_iter()
+                        .map(|(name, maybe_type)|
+                            (strip_loc(name), strip_option_loc(maybe_type)))
+                        .collect()
+                })
+            .collect::<Vec<_>>();
+
+        Ok(structs)
+    }
+
     #[test]
     fn test_literal() {
         let expr = plex("5").unwrap();
@@ -258,6 +279,21 @@ mod lalrpop {
         ));
 
         assert_eq!(expr, res);
+    }
+
+    #[test]
+    fn test_struct_def() {
+        let stmt = plex_struct("struct Thing{ a: int, b: float }")
+            .unwrap().remove(0);
+
+        let res = StructDef{
+            name: Identifier("Thing".into()).null_span(),
+            fields: vec![
+                (Identifier("a".into()).null_span(), Some(Type::Primitive(Primitive::Int(IntType)).null_span())),
+                (Identifier("b".into()).null_span(), Some(Type::Primitive(Primitive::Float(FloatType)).null_span())),
+            ],
+        };
+        assert_eq!(stmt, res)
     }
 
     #[test]
