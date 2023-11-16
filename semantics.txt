@@ -19,3 +19,45 @@ Ideas:
 
     - if switching the type of a variable / code path is a user error, we can
       JIT stuff really well
+
+
+VM:
+/**
+ * Val = Reg(u16) | Immediate(u16)
+ * all args are Val unless otherwise specified
+ * Instructions:
+ * ADD dest: Reg, lhs, rhs
+ * SUB dest: Reg, lhs, rhs
+ * MUL dest: Reg, lhs, rhs
+ * 
+ * GET_FIELD source, field_idx: Gets user struct stored at `idx` in compiled version of source
+ * STORE_FIELD dest, field_idx
+ * 
+ * BRANCH_EQ offset, lhs, rhs
+ * BRANCH_NEQ offset, lhs, rhs
+ * 
+ * NOT Reg
+ * NEGATE Reg
+ * 
+ * RET Reg: Exit from this block, yielding the given register as the result
+ * 
+ * LAMBDA_DEF count: Val, id: Imm -- Val should be a number. When this instruction is called, `count` values will be popped from the top
+ *  of the stack and copied into sequential locations (in order of pop) in the pre-allocated stack of lambda with id `id`. This is to
+ *  facilitate environment capture.
+ * 
+ * 
+ * CALL func: Func can be immediate or register. Value will be interpreted as function ID in global function table of current block.
+ * todo: figure out how to efficiently capture functions in a way that can be usable from other basic blocks
+ *  - reference to const memory shared by all blocks
+ *  - blocks are const after creation in the context of interpreter
+ *  - except for lambdas, which need their env information updated at the time of creation
+ * 
+ * 
+ * 
+ * Implementation notes: 
+ * - for now, will store registers as frame-local array which can be preallocated at correct size. 
+ * - at compile time, large immediates should be pre-placed into registers -- then, instructions which use immediates
+ *      can simply look up the correct reg
+ * - compiler should organize code into "blocks", each of which has a pre-allocated stack frame (registers) and can return a value
+ * - TODO: how to handle dynamic code execution? do we want to support types-as-dicts?
+ */
