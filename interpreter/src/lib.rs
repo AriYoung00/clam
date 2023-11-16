@@ -3,19 +3,21 @@
 #![feature(pointer_byte_offsets)]
 
 pub mod data;
-mod type_checker;
+// mod type_checker;
 
 use std::{
     cell::RefCell,
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},
     sync::Arc, io::Write,
+    sync::mpsc::Sender,
 };
 
 use clam_common::ast::{
     Assign, BinOp, Block, Conditional, Expr, FnCall, FnDef, Identifier, Let, Span, Statement, UnOp,
     WhileLoop, StructDef,
 };
+use clam_common::util::SendAll;
 use data::{
     ClamBool, ClamData, ClamRuntimeError, ClamString, ClamUserType, ErrorSource::*, GcRef, Heap,
 };
@@ -138,7 +140,7 @@ pub struct Ctx {
     pub structs: HashMap<Identifier, StructDef>,
 
     // TODO: figure out a better way to represent this
-    pub stdout: Arc<RefCell<Vec<u8>>>,
+    pub stdout: Sender<u8>,
 }
 
 #[allow(dead_code)]
@@ -187,14 +189,16 @@ fn call_builtin_fn(id: &Identifier, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) 
             let mut args = args.iter();
             if let Some(arg) = args.next() {
                 let res = eval_expr(arg, ctx)?;
-                write!(ctx.stdout.borrow_mut(), "{}", res).unwrap()
+                ctx.stdout.send_all(res.to_string().bytes());
             }
 
             for arg in args {
                 let res = eval_expr(arg, ctx)?;
-                write!(ctx.stdout.borrow_mut(), " {}", res).unwrap();
+                ctx.stdout.send_all(res.to_string().bytes()).expect("stdout was unexpectedly severed!");
             }
-            write!(ctx.stdout.as_ref().borrow_mut(), "\n").unwrap();
+
+            ctx.stdout.send(b'\n').expect("stdout was unexpectedly severed!");
+
             Ok(ClamData::Empty)
         }
         _ => unreachable!("should not be able to call_builtin_fn with nonexistent builtin"),
@@ -379,6 +383,8 @@ fn eval_statement(stmt: &Statement, ctx: &mut Ctx) -> Result<ClamData> {
 
 #[cfg(test)]
 mod test {
+    use std::sync::mpsc::channel;
+
     use super::*;
     use crate::{data::*, eval_expr};
     use clam_common::ast::*;
@@ -405,11 +411,13 @@ mod test {
         use BinaryOperator::*;
         let ast = bin_op(Plus, cint_lit(1), cint_lit(2));
         let heap = Arc::new(RefCell::new(Heap::default()));
-        let stdout = Arc::new(RefCell::new(Vec::<u8>::new()));
-        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
-                                    stdout.clone());
+        let (stdout, stdout_recv) = channel::<u8>();
+        let res = {
+            let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
+                                        stdout);
+            eval_expr(&ast, &mut ctx).unwrap()
+        };
 
-        let res = eval_expr(&ast, &mut ctx).unwrap();
         assert_eq!(res, cint_data(3));
     }
 
@@ -418,13 +426,17 @@ mod test {
         let ast = fun_call("println", [bin_op(BinaryOperator::Plus, cint_lit(3), cint_lit(7))]);
 
         let heap = Arc::new(RefCell::new(Heap::default()));
-        let stdout = Arc::new(RefCell::new(Vec::<u8>::new()));
-        let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
-                                    stdout.clone());
-        let res = eval_expr(&ast, &mut ctx).unwrap();
+
+        let (stdout, stdout_recv) = channel::<u8>();
+        let res = {
+            let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
+                                        stdout);
+            eval_expr(&ast, &mut ctx).unwrap()
+        };
 
         assert_eq!(res, ClamData::Empty);
         let expected: Vec<u8> = "10\n".into();
-        assert_eq!(stdout.borrow().as_slice(), expected);
+        let actual: Vec<u8> = stdout_recv.into_iter().collect();
+        assert_eq!(actual, expected);
     }
 }
