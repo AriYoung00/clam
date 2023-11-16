@@ -2,6 +2,7 @@ use clam_common::ast::Type;
 #[deny(dead_code)]
 use clam_common::ast::Identifier;
 use ordered_float::OrderedFloat;
+use static_assertions::assert_eq_size;
 
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -166,13 +167,22 @@ impl NewHeap {
 
         self.top = new_top;
 
-        NewGcRef { data: data_addr, header: header_addr }
+        NewGcRef { data: data_addr }
     }
 }
+
+#[derive(PartialEq, Eq, Debug)]
 pub struct NewGcRef<T> {
     pub(super) data:   *mut HeapData<T>,
-    pub(super) header: *mut HeapHeader<T>,
 }
+assert_eq_size!(NewGcRef<u64>, u64);
+
+impl<T> Clone for NewGcRef<T> {
+    fn clone(&self) -> Self {
+        Self { data: self.data }
+    }
+}
+impl<T> Copy for NewGcRef<T> {}
 
 pub struct GcBorrow<'a, T> {
     counter: &'a AtomicUsize,
@@ -278,6 +288,25 @@ pub enum ClamData {
     Bool(ClamBool),
     Empty,
 }
+
+#[allow(dead_code)]
+#[derive(PartialEq, Eq, From, Debug, Clone)]
+pub enum NewClamData {
+    // UserType(GcRef<ClamUserType>),
+    UserType(NewGcRef<ClamUserType>),
+    String(NewGcRef<ClamString>),
+    Float(ClamFloat),
+    Int(ClamInt),
+    Bool(ClamBool),
+    Empty,
+}
+
+assert_eq_size!(NewGcRef<ClamUserType>, u64);
+assert_eq_size!(NewGcRef<ClamString>, u64);
+assert_eq_size!(ClamInt, u64);
+assert_eq_size!(ClamBool, u8);
+assert_eq_size!(ClamFloat, u64);
+assert_eq_size!(NewClamData, u128);
 
 impl Display for ClamData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -607,6 +636,44 @@ mod test {
         assert_eq!((cfloat(4.0) / cint(2)).unwrap(), cfloat(2.0));
         assert_eq!((cint(4)     / cfloat(2.0)).unwrap(), cfloat(2.0));
         assert_eq!((cint(10)    / cint(2)).unwrap(), cint(5));
+    }
+
+
+    struct TestData {
+        thing1: i32,
+        thing2: i64,
+        thing3: usize,
+    }
+    #[test]
+    fn test_new_heap_single_object() {
+        use super::{NewGcRef, NewHeap};
+
+        let mut heap = NewHeap::default();
+        let thing = heap.move_to_heap(TestData{ thing1: 13, thing2: -1423, thing3: 192919 });
+        let borrow = unsafe { thing.borrow() };
+
+        assert_eq!(borrow.data.thing1, 13);
+        assert_eq!(borrow.data.thing2, -1423);
+        assert_eq!(borrow.data.thing3, 192919);
+    }
+
+    #[test]
+    fn test_new_heap_multi_object() {
+        use super::{NewGcRef, NewHeap};
+
+        let mut heap = NewHeap::default();
+        let thing = heap.move_to_heap(TestData{ thing1: 13, thing2: -1423, thing3: 192919 });
+        let thing2 = heap.move_to_heap(TestData{ thing1: 25, thing2: 35, thing3: 45 });
+        let borrow = unsafe { thing.borrow() };
+        let borrow2 = unsafe { thing2.borrow() };
+
+        assert_eq!(borrow.data.thing1, 13);
+        assert_eq!(borrow.data.thing2, -1423);
+        assert_eq!(borrow.data.thing3, 192919);
+
+        assert_eq!(borrow2.data.thing1, 25);
+        assert_eq!(borrow2.data.thing2, 35);
+        assert_eq!(borrow2.data.thing3, 45);
     }
 
 }
