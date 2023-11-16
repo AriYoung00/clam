@@ -184,8 +184,8 @@ pub enum Expr {
 
 #[derive(Clone, Debug, PartialEq, Eq, Constructor)]
 pub struct StructDef {
-    name: Span<Identifier>,
-    fields: Vec<(Span<Identifier>, Option<Span<Type>>)>,
+    pub name: Span<Identifier>,
+    pub fields: Vec<(Span<Identifier>, Option<Span<Type>>)>,
 }
 
 pub struct Mod(pub Vec<Either<FnDef, StructDef>>);
