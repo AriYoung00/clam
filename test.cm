@@ -1,0 +1,21 @@
+fn fib(n: int) -> int {
+    if (n == 0) {
+        return 0;
+    };
+    if (n == 1) {
+        return 1;
+    };
+
+    fib(n - 1) + fib(n - 2)
+}
+
+fn main() {
+    println("zero");
+    println(fib(0));
+    println("one");
+    println(fib(1));
+    println("seven");
+    println(fib(7));
+    println("twenty-five");
+    println(fib(25));
+}
