@@ -189,7 +189,7 @@ fn call_builtin_fn(id: &Identifier, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) 
             let mut args = args.iter();
             if let Some(arg) = args.next() {
                 let res = eval_expr(arg, ctx)?;
-                ctx.stdout.send_all(res.to_string().bytes());
+                ctx.stdout.send_all(res.to_string().bytes()).expect("stdout was unexpectedly severed!");
             }
 
             for arg in args {
@@ -232,8 +232,8 @@ pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
         }),
 
         Expr::BinOp(BinOp { op, lhs, rhs }) => {
-            let lhs = eval_expr(&lhs, ctx)?;
-            let rhs = eval_expr(&rhs, ctx)?;
+            let lhs = eval_expr(lhs, ctx)?;
+            let rhs = eval_expr(rhs, ctx)?;
             let cbool = |b| ClamData::Bool(ClamBool(b));
 
             Ok(match op {

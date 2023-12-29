@@ -1,3 +1,5 @@
+#![feature(custom_test_frameworks)]
+#![test_runner(datatest::runner)]
 extern crate clam_interpreter;
 extern crate clam_common;
 extern crate clam_parser;
@@ -7,6 +9,7 @@ use std::cell::{RefCell, Ref};
 use std::hash::Hash;
 use std::io::{Stdout, Cursor};
 use std::sync::Arc;
+use std::sync::mpsc;
 
 use clam_common::ast::{Identifier, FnDef};
 use clam_parser::lexer::Lexer;
@@ -14,8 +17,11 @@ use clam_parser::parser::ModuleParser;
 use clam_interpreter::data::{ClamRuntimeError, ClamInt, Heap};
 use clam_interpreter::{eval_expr, Ctx};
 
+#[cfg(test)]
+mod test;
+
 #[derive(Debug)]
-enum ClamInterpreterError {
+pub enum ClamInterpreterError {
     FileNotFound,
     MainNotFount,
     Runtime(ClamRuntimeError),
@@ -32,11 +38,9 @@ impl From<std::io::Error> for ClamInterpreterError {
     }
 }
 
-fn interpret_file(name: &str) -> Result<String, ClamInterpreterError> {
-    use std::fs;
+pub fn interpret_file_contents(contents: &str) -> Result<String, ClamInterpreterError> {
     use im_rc::HashMap;
 
-    let contents = fs::read_to_string(name).unwrap();
     let token_stream = Lexer::new(&contents);
     let parser = ModuleParser::new();
     let mut clam_mod = parser.parse(token_stream).unwrap().0;
@@ -60,27 +64,30 @@ fn interpret_file(name: &str) -> Result<String, ClamInterpreterError> {
     let vars = HashMap::new();
     let structs = HashMap::new();
     let heap = Arc::new(RefCell::new(Heap::default()));
-    let stdout_vec = Vec::with_capacity(10000);
-    let stdout = Arc::new(RefCell::new(stdout_vec));
+    let (stdout, stdout_recv) = mpsc::channel();
+    // need to move stdout so the recv closes
+    let _main_res = {
+        let stdout = stdout;
+        let mut ctx = Ctx{
+            heap,
+            vars,
+            funcs,
+            structs,
+            stdout,
+        };
 
-    let mut ctx = Ctx{
-        heap,
-        vars,
-        funcs,
-        structs,
-        stdout,
+        eval_expr(&main_func.unwrap_left().body, &mut ctx).unwrap()
     };
 
-    let _main_res = eval_expr(&main_func.unwrap_left().body, &mut ctx).unwrap();
-    let Ctx{ stdout, .. } = ctx;
-    Ok(stdout.take().into_iter().map(|c| char::from(c)).collect())
+    Ok(stdout_recv.into_iter().map(|c| char::from(c)).collect())
 }
 
 fn main() {
     use std::env;
     let args: Vec<String> = env::args().collect();
 
-    let res = interpret_file(&args[1]).unwrap();
+    let contents = std::fs::read_to_string(args[1].as_str()).unwrap();
+    let res = interpret_file_contents(contents.as_str()).unwrap();
     println!("{}", res);
 }
 

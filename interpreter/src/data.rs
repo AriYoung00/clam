@@ -1,5 +1,4 @@
 use clam_common::ast::Type;
-#[deny(dead_code)]
 use clam_common::ast::Identifier;
 use ordered_float::OrderedFloat;
 use static_assertions::assert_eq_size;
