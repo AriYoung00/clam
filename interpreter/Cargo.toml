@@ -12,3 +12,6 @@ ordered-float = "3.7.0"
 im-rc = "15.1.0"
 num-traits = "0.2"
 static_assertions = "1.1.0"
+
+[dev-dependencies]
+datatest = "0.8.0"
