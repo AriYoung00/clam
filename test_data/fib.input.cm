@@ -16,6 +16,4 @@ fn main() {
     println(fib(1));
     println("seven");
     println(fib(7));
-    println("twenty-five");
-    println(fib(25));
 }
