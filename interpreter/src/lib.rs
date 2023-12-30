@@ -1,6 +1,5 @@
 #![feature(if_let_guard)]
 #![feature(try_trait_v2)]
-#![feature(pointer_byte_offsets)]
 
 pub mod data;
 // mod type_checker;
@@ -9,7 +8,7 @@ use std::{
     cell::RefCell,
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},
-    sync::Arc, io::Write,
+    sync::Arc,
     sync::mpsc::Sender,
 };
 
@@ -53,13 +52,8 @@ where
     }
     pub fn unwrap(self) -> T {
         match self {
-            Ok(val) => {
-                return val;
-            }
-            Err(e) => {
-                core::result::Result::<(), E>::Err(e).unwrap();
-                unreachable!("unreachable");
-            }
+            Ok(val) => val,
+            Err(e) => panic!("Called `unwrap` on EvalResult::Err({:?})", e),
             Return(val) => panic!("Called `unwrap` on EvalResult::Return({val:?})"),
             Break => panic!("Called `unwrap` on EvalResult::Break"),
             Continue => panic!("Called `unwrap` on EvalResult::Continue"),
@@ -135,12 +129,14 @@ impl<T> ErrSpan for Result<T> {
 #[derive(Constructor, Clone)]
 pub struct Ctx {
     pub heap: Arc<RefCell<Heap<ClamUserType>>>,
-    pub vars: HashMap<Identifier, ClamData>,
     pub funcs: HashMap<Identifier, FnDef>,
     pub structs: HashMap<Identifier, StructDef>,
 
     // TODO: figure out a better way to represent this
     pub stdout: Sender<u8>,
+
+    vars: HashMap<Identifier, ClamData>,
+    current_scope: Vec<Identifier>,
 }
 
 #[allow(dead_code)]
@@ -149,14 +145,52 @@ impl Ctx {
         self.heap.borrow_mut().move_to_heap(data)
     }
 
-    fn with_vars(&self, vars: HashMap<Identifier, ClamData>) -> Self {
+    pub fn new_scope_with_vars(&self, vars: HashMap<Identifier, ClamData>) -> Self {
         Ctx {
             heap: self.heap.clone(),
             vars,
             funcs: self.funcs.clone(),
             structs: self.structs.clone(),
             stdout: self.stdout.clone(),
+            current_scope: Vec::new(),
         }
+    }
+
+    pub fn new_scope(&self) -> Self {
+        Ctx {
+            heap: self.heap.clone(),
+            funcs: self.funcs.clone(),
+            structs: self.structs.clone(),
+            stdout: self.stdout.clone(),
+            vars: self.vars.clone(),
+            current_scope: Vec::new(),
+        }
+    }
+
+    pub fn end_scope(&mut self, mut scope: Self) {
+        for new_var in scope.current_scope.as_slice() {
+            scope.vars.remove(new_var);
+        }
+
+        self.vars = scope.vars.union(self.vars.clone())
+    }
+
+    #[inline]
+    pub fn insert_var(&mut self, id: Identifier, val: ClamData) {
+        self.vars.insert(id.clone(), val);
+        self.current_scope.push(id);
+    }
+
+    pub fn contains_var(&self, id: &Identifier) -> bool {
+        self.vars.contains_key(id)
+    }
+
+    pub fn set_var(&mut self, id: &Identifier, val: ClamData) {
+        self.vars[id] = val;
+    }
+
+    pub fn get_var(&mut self, id: &Identifier) -> Option<&ClamData> {
+        self.vars.get(id)
     }
 }
 
@@ -171,11 +205,11 @@ fn call_user_fn(def: &FnDef, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) -> Resu
         .param_list
         .iter()
         .map(|((_, id, _), _)| id.clone())
-        .zip(arg_vals.into_iter());
+        .zip(arg_vals);
     let mut new_vars = HashMap::new();
     new_vars.extend(mappings);
 
-    let mut new_ctx = ctx.with_vars(new_vars);
+    let mut new_ctx = ctx.new_scope_with_vars(new_vars);
 
     match eval_expr(&def.body, &mut new_ctx) {
         Return(val) => Ok(val),
@@ -183,7 +217,7 @@ fn call_user_fn(def: &FnDef, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) -> Resu
     }
 }
 
-fn call_builtin_fn(id: &Identifier, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) -> Result<ClamData> {
+fn call_builtin_fn(id: &Identifier, args: &[Span<Box<Expr>>], ctx: &mut Ctx) -> Result<ClamData> {
     match id.0.as_ref() {
         "println" => {
             let mut args = args.iter();
@@ -207,10 +241,7 @@ fn call_builtin_fn(id: &Identifier, args: &Vec<Span<Box<Expr>>>, ctx: &mut Ctx) 
 
 // stupid hack
 fn is_builtin_fn(id: &Identifier) -> bool {
-    match id.0.as_ref() {
-        "println" => true,
-        _ => false,
-    }
+    matches!(id.0.as_ref(), "println")
 }
 
 #[allow(dead_code)]
@@ -232,32 +263,33 @@ pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
         }),
 
         Expr::BinOp(BinOp { op, lhs, rhs }) => {
+            use clam_common::ast::BinaryOperator;
             let lhs = eval_expr(lhs, ctx)?;
             let rhs = eval_expr(rhs, ctx)?;
             let cbool = |b| ClamData::Bool(ClamBool(b));
 
             Ok(match op {
-                clam_common::ast::BinaryOperator::Plus => lhs + rhs,
-                clam_common::ast::BinaryOperator::Minus => lhs - rhs,
-                clam_common::ast::BinaryOperator::Times => lhs * rhs,
-                clam_common::ast::BinaryOperator::Div => (lhs / rhs).add_loc(start, end)?,
-                clam_common::ast::BinaryOperator::Mod => (lhs % rhs).add_loc(start, end)?,
-                clam_common::ast::BinaryOperator::Lt  => cbool(lhs < rhs),
-                clam_common::ast::BinaryOperator::Lte => cbool(lhs <= rhs),
-                clam_common::ast::BinaryOperator::Gt  => cbool(lhs > rhs),
-                clam_common::ast::BinaryOperator::Gte => cbool(lhs >= rhs),
-                clam_common::ast::BinaryOperator::Eq  => cbool(lhs == rhs),
-                clam_common::ast::BinaryOperator::Ne  => cbool(lhs != rhs),
-                clam_common::ast::BinaryOperator::And => cbool(ensure_bool(&lhs) && ensure_bool(&rhs)),
-                clam_common::ast::BinaryOperator::Or  => cbool(ensure_bool(&lhs) || ensure_bool(&rhs)),
-                clam_common::ast::BinaryOperator::BitAnd => lhs & rhs,
-                clam_common::ast::BinaryOperator::BitOr  => lhs | rhs,
-                clam_common::ast::BinaryOperator::BitXor => lhs ^ rhs,
+                BinaryOperator::Plus   => lhs + rhs,
+                BinaryOperator::Minus  => lhs - rhs,
+                BinaryOperator::Times  => lhs * rhs,
+                BinaryOperator::Div    => (lhs / rhs).add_loc(start, end)?,
+                BinaryOperator::Mod    => (lhs % rhs).add_loc(start, end)?,
+                BinaryOperator::Lt     => cbool(lhs < rhs),
+                BinaryOperator::Lte    => cbool(lhs <= rhs),
+                BinaryOperator::Gt     => cbool(lhs > rhs),
+                BinaryOperator::Gte    => cbool(lhs >= rhs),
+                BinaryOperator::Eq     => cbool(lhs == rhs),
+                BinaryOperator::Ne     => cbool(lhs != rhs),
+                BinaryOperator::And    => cbool(ensure_bool(&lhs) && ensure_bool(&rhs)),
+                BinaryOperator::Or     => cbool(ensure_bool(&lhs) || ensure_bool(&rhs)),
+                BinaryOperator::BitAnd => lhs & rhs,
+                BinaryOperator::BitOr  => lhs | rhs,
+                BinaryOperator::BitXor => lhs ^ rhs,
             })
         }
 
         Expr::UnOp(UnOp { op, rhs }) => {
-            let res = eval_expr(&rhs, ctx)?;
+            let res = eval_expr(rhs, ctx)?;
             Ok(match op {
                 clam_common::ast::UnaryOperator::Not
                  | clam_common::ast::UnaryOperator::BitInvert => !res,
@@ -265,7 +297,7 @@ pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
             })
         }
 
-        Expr::Identifier(i) => match ctx.vars.get(&i) {
+        Expr::Identifier(i) => match ctx.get_var(i) {
             Some(val) => Ok(val.clone()),
             None => VariableNotFound.with_loc(start, end),
         },
@@ -331,17 +363,20 @@ fn ensure_bool(data: &ClamData) -> bool {
 fn eval_block(block: &Block, ctx: &mut Ctx) -> Result<ClamData> {
     // we need to figure out a way to update variables in the enclosing scope, but discard new variables declared within this block
     // clone the context
-    let mut new_ctx = ctx.clone();
+    let mut new_ctx = ctx.new_scope();
 
     for (start, line, end) in &block.body {
         let _ = eval_statement(line, &mut new_ctx).map_no_loc(*start, *end)?;
     }
 
-    if let Some((start, last, end)) = &block.last {
-        eval_statement(&last, &mut new_ctx).map_no_loc(*start, *end)
+    let res = if let Some((start, last, end)) = &block.last {
+        eval_statement(last, &mut new_ctx).map_no_loc(*start, *end)
     } else {
         Ok(ClamData::Empty)
-    }
+    };
+
+    ctx.end_scope(new_ctx);
+    res
 }
 
 fn eval_statement(stmt: &Statement, ctx: &mut Ctx) -> Result<ClamData> {
@@ -354,21 +389,21 @@ fn eval_statement(stmt: &Statement, ctx: &mut Ctx) -> Result<ClamData> {
             expr,
         }) => {
             let (_, id, _) = id;
-            let res = expr.as_ref().map(|exp| eval_expr(&exp, ctx)).unwrap()?;
+            let res = expr.as_ref().map(|exp| eval_expr(exp, ctx)).unwrap()?;
 
-            ctx.vars.insert(id.clone(), res);
+            ctx.insert_var(id.clone(), res);
 
             Ok(Empty)
         }
         Statement::Assign(Assign { id, expr }) => {
             let (var_start, id, var_end) = id;
 
-            if !ctx.vars.contains_key(id) {
+            if !ctx.contains_var(id) {
                 return ErrorSource::VariableNotFound.with_loc(*var_start, *var_end);
             }
 
             let res = eval_expr(expr, ctx)?;
-            ctx.vars[id] = res;
+            ctx.set_var(id, res);
 
             Ok(Empty)
         }
@@ -413,8 +448,7 @@ mod test {
         let heap = Arc::new(RefCell::new(Heap::default()));
         let (stdout, stdout_recv) = channel::<u8>();
         let res = {
-            let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
-                                        stdout);
+            let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), stdout, HashMap::new(), Vec::new());
             eval_expr(&ast, &mut ctx).unwrap()
         };
 
@@ -429,8 +463,7 @@ mod test {
 
         let (stdout, stdout_recv) = channel::<u8>();
         let res = {
-            let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), HashMap::new(),
-                                        stdout);
+            let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), stdout, HashMap::new(), Vec::new());
             eval_expr(&ast, &mut ctx).unwrap()
         };
 

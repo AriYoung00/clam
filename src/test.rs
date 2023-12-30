@@ -1,6 +1,7 @@
 // use serde::Deserialize;
 use crate::interpret_file_contents;
 extern crate pretty_assertions;
+#[allow(unused)]
 use self::pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
 
 #[datatest::files("test_data/", {
@@ -11,9 +12,6 @@ use self::pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
   output = r"${1}.output.txt",
 })]
 #[test]
-fn files_test_strings(input: &str, output: &str) {
-    let res = interpret_file_contents(input).unwrap();
-    println!("res is '{}'", res);
-    println!("output is '{}'", output);
+fn test_interpret_output(input: &str, output: &str) {
     assert_str_eq!(interpret_file_contents(input).unwrap(), output);
 }

@@ -5,7 +5,7 @@ use static_assertions::assert_eq_size;
 
 use std::fmt::Display;
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
+use std::sync::atomic::{AtomicUsize};
 use std::{collections::HashMap, cmp};
 use std::sync::Arc;
 use derive_more::{Add, Sub, Div, Mul, Not, Neg, From};
@@ -118,6 +118,7 @@ impl Default for NewHeap {
 }
 
 #[repr(packed)]
+#[allow(unused)]
 pub struct HeapHeader<T> {
     is_marked: bool,
     new_addr: Option<*mut u8>,
@@ -134,7 +135,7 @@ impl NewHeap {
         let start_addr = self.top;
 
         // safety: we manually ensure the alignment of data after move using some pointer math
-        let (data_addr, header_addr, new_top) = unsafe {
+        let (data_addr, _header_addr, new_top) = unsafe {
             let header_addr = start_addr as *mut HeapHeader<T>;
             let header_end = header_addr.offset(1) as *mut u8;
             let req_offset = header_end.align_offset(std::mem::align_of::<HeapData<T>>());
@@ -143,9 +144,9 @@ impl NewHeap {
                 panic!("Unable to align pointer in heap allocation!");
             }
 
-            let data_addr = header_end.offset(req_offset as isize) as *mut HeapData<T>;
+            let data_addr = header_end.add(req_offset) as *mut HeapData<T>;
             let new_top = data_addr.offset(1) as *mut u8;
-            if self.base_addr.byte_offset_from(new_top).abs() as usize > self.size {
+            if self.base_addr.byte_offset_from(new_top).unsigned_abs() > self.size {
                 panic!("Out of heap space!")
             }
 
@@ -178,11 +179,12 @@ assert_eq_size!(NewGcRef<u64>, u64);
 
 impl<T> Clone for NewGcRef<T> {
     fn clone(&self) -> Self {
-        Self { data: self.data }
+        *self
     }
 }
 impl<T> Copy for NewGcRef<T> {}
 
+#[allow(unused)]
 pub struct GcBorrow<'a, T> {
     counter: &'a AtomicUsize,
     data: &'a T,
@@ -245,7 +247,7 @@ impl<T> AsRef<T> for GcRef<T> {
 
 impl<T> Clone for GcRef<T> {
     fn clone(&self) -> Self {
-        Self { idx: self.idx, data: self.data }
+        *self
     }
 }
 impl<T> Copy for GcRef<T> {}
@@ -383,12 +385,12 @@ impl std::ops::Add for ClamData {
             (Bool(_b1), Bool(_b2)) => unreachable!("bool + bool should be unreachable"),
             (UserType(_u1), UserType(_u2)) => unreachable!("cannot add user types"),
 
-            (Float(f), other@_)
-            | (other@_, Float(f))
+            (Float(f), other)
+            | (other, Float(f))
                     if let Ok(rhs_) = ClamFloat::try_from(&other) => Float(f + rhs_),
 
             (_, _) => unreachable!("mismatched type addition should be unreachable"),
-        }.into()
+        }
     }
 }
 
@@ -399,7 +401,7 @@ impl std::ops::Not for ClamData {
         match self {
             ClamData::Bool(ClamBool(b)) => ClamData::Bool(ClamBool(!b)),
             ClamData::Int(ClamInt(i)) => ClamData::Int(ClamInt(!i)),
-            t@_ => unreachable!("logical not on something besides bool: {t:?}"),
+            t => unreachable!("logical not on something besides bool: {t:?}"),
         }
     }
 }
