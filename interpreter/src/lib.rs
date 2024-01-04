@@ -18,12 +18,12 @@ use clam_common::ast::{
 };
 use clam_common::util::SendAll;
 use data::{
-    ClamBool, ClamData, ClamRuntimeError, ClamString, ClamUserType, ErrorSource::*, GcRef, Heap,
+    ClamBool, ClamData, ClamRuntimeError, ClamString, ClamUserType,
 };
 use derive_more::Constructor;
 use im_rc::HashMap;
 
-use crate::data::ErrorSource;
+use crate::data::{ErrorSource, ErrorSource::*, NewGcRef, NewHeap};
 
 // type Result<T> = std::result::Result<T, ClamRuntimeError>;
 pub enum EvalResult<T, E> {
@@ -58,6 +58,19 @@ where
             Break => panic!("Called `unwrap` on EvalResult::Break"),
             Continue => panic!("Called `unwrap` on EvalResult::Continue"),
         }
+    }
+    pub fn map_ok<NewOk>(self, f: impl FnOnce(T) -> NewOk) -> EvalResult<NewOk, E> {
+        match self {
+            Err(e) => Err(e),
+            Ok(v) => Ok(f(v)),
+            Return(e) => Return(e),
+            Break => Break,
+            Continue => Continue,
+        }
+    }
+
+    pub fn is_err(&self) -> bool {
+        matches!(self, EvalResult::Err(_))
     }
 }
 
@@ -120,7 +133,7 @@ impl<T> ErrSpan for Result<T> {
 
     fn likely_has_loc(&self) -> bool {
         match self {
-            Err(e) => e.loc == (0, 0),
+            Err(e) => e.loc != (0, 0),
             _ => true,
         }
     }
@@ -128,7 +141,7 @@ impl<T> ErrSpan for Result<T> {
 
 #[derive(Constructor, Clone)]
 pub struct Ctx {
-    pub heap: Arc<RefCell<Heap<ClamUserType>>>,
+    pub heap: Arc<RefCell<NewHeap>>,
     pub funcs: HashMap<Identifier, FnDef>,
     pub structs: HashMap<Identifier, StructDef>,
 
@@ -141,7 +154,7 @@ pub struct Ctx {
 
 #[allow(dead_code)]
 impl Ctx {
-    pub fn to_heap(&mut self, data: ClamUserType) -> GcRef<ClamUserType> {
+    pub fn to_heap(&mut self, data: ClamUserType) -> NewGcRef<ClamUserType> {
         self.heap.borrow_mut().move_to_heap(data)
     }
 
