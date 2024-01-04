@@ -5,6 +5,9 @@ use ordered_float::OrderedFloat;
 pub type SpannedRes<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 pub type Spanned<T, Loc> = (Loc, T, Loc);
 pub type Span<T> = Spanned<T, usize>;
+pub fn span_inner<T>(span: Span<T>) -> T {
+    span.1
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IntType;
@@ -168,12 +171,16 @@ pub enum Statement {
     Return(Option<Span<Box<Expr>>>),
 }
 
+// field1.field2.field3 = ["field1", "field2", "field3"]
+pub type FieldAccess = Vec<Span<Identifier>>;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
     Literal(Literal),
     BinOp(BinOp),
     UnOp(UnOp),
     Identifier(Identifier),
+    FieldAccess(FieldAccess),
     FnCall(FnCall),
     LambdaDef(LambdaDef),
     Block(Block),

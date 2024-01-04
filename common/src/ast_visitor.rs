@@ -65,6 +65,10 @@ pub trait AstVisitor<CtxType, ErrorType> {
         Self::default()
     }
 
+    fn visit_struct(s: &StructDef, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
+        Self::default()
+    }
+
     fn visit_statement(s: &Statement, ctx: CtxType) -> Result<Self::OutputType, ErrorType> {
         match s {
             Statement::FnDef(f)  => Self::visit_fn_def(&f, ctx),
@@ -91,6 +95,7 @@ pub trait AstVisitor<CtxType, ErrorType> {
             Expr::Conditional(c) => Self::visit_conditional(&c, ctx),
             Expr::WhileLoop(w) => Self::visit_while_loop(&w, ctx),
             Expr::ForLoop(f) => Self::visit_for_loop(&f, ctx),
+            Expr::FieldAccess(_) => todo!()
         }
     }
 }

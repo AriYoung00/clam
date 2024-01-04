@@ -259,7 +259,9 @@ pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
                 ClamData::String(ClamString((s.clone()).into()))
             }
             Literal::Command(_c) => todo!("Evaluate commands"),
-            Literal::Struct(_, _) => todo!("Evaluate struct literal"),
+            Literal::Struct(_, _) => {
+                todo!()
+            }
         }),
 
         Expr::BinOp(BinOp { op, lhs, rhs }) => {
@@ -302,6 +304,8 @@ pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
             None => VariableNotFound.with_loc(start, end),
         },
 
+        Expr::FieldAccess(_) => todo!(),
+
         Expr::FnCall(FnCall { id, args }) => {
             let (start, id, end) = id;
             if let Some(def) = ctx.funcs.get(id) {
@@ -312,7 +316,7 @@ pub fn eval_expr(exp: &Span<Box<Expr>>, ctx: &mut Ctx) -> Result<ClamData> {
                 call_builtin_fn(id, args, ctx)
             }
             else {
-                ErrorSource::FunctionNotFound.with_loc(*start, *end)
+                FunctionNotFound.with_loc(*start, *end)
             }
         },
 

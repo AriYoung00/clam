@@ -21,7 +21,7 @@ Comma<T>: Vec<T> = { // (1)
     }
 };
 
-Spanned<T>: ast::Span<T> = <@L> <T> <@R> => (<>);
+Spanned<T>: ast::Span<T> = <@L> <T> <@R>;
 
 Identifier: ast::Identifier = "identifier" => <>.into();
 
@@ -151,6 +151,11 @@ Expr: Box<ast::Expr> = {
 
 pub ExternalExpr = Expr;
 
+FieldAccess: ast::FieldAccess =
+    <first:Spanned<Identifier>> <mut v:("." <Spanned<Identifier>>)+> => {
+        v.insert(0, first);
+        v
+    };
 
 Term: Box<ast::Expr> = {
     Block => Box::new(ast::Expr::Block(<>)),
@@ -158,6 +163,8 @@ Term: Box<ast::Expr> = {
     Conditional => Box::new(ast::Expr::Conditional(<>)),
     WhileLoop => Box::new(ast::Expr::WhileLoop(<>)),
     Identifier => Box::new(ast::Expr::Identifier(<>)),
+    FieldAccess => Box::new(ast::Expr::FieldAccess(<>)),
+
     // function call
     <Spanned<Identifier>> "(" <Comma<Spanned<Expr>>> ")" 
         => Box::new(ast::Expr::FnCall(ast::FnCall::new(<>))),
