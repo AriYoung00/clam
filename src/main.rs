@@ -51,7 +51,7 @@ fn into_std_result<OutType>(res: EvalResult<OutType, ClamRuntimeError>) -> std::
 }
 
 
-pub fn interpret_file_contents(contents: &str) -> Result<(), ClamInterpreterError> {
+pub fn interpret_file_contents(contents: &str) -> Result<String, ClamInterpreterError> {
     use im_rc::HashMap;
 
     let token_stream = Lexer::new(contents);
@@ -109,7 +109,8 @@ pub fn interpret_file_contents(contents: &str) -> Result<(), ClamInterpreterErro
     stdout_thread.join().unwrap();
     
     // lol toilet operator
-    into_std_result(main_res.map_ok(|_|()))
+    into_std_result(main_res.map_ok(|_|
+        res.lock().unwrap().iter().collect()))
 }
 
 fn print_error(err: ClamInterpreterError, src: &str, name: &str) {
