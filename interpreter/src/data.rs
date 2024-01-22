@@ -197,8 +197,8 @@ impl<'a, T> Drop for GcBorrow<'a, T> {
 
 
 impl<T> NewGcRef<T> {
-    pub unsafe fn borrow<'a>(&self) -> GcBorrow<'a, T> {
-        let data = self.data.as_ref().unwrap();
+    pub fn borrow<'a>(&self) -> GcBorrow<'a, T> {
+        let data = unsafe { self.data.as_ref() }.unwrap();
         data.refcnt.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         GcBorrow{
             counter: &data.refcnt,

@@ -462,8 +462,9 @@ mod test {
     fn eval_arith_expr() {
         use BinaryOperator::*;
         let ast = bin_op(Plus, cint_lit(1), cint_lit(2));
-        let heap = Arc::new(RefCell::new(Heap::default()));
-        let (stdout, stdout_recv) = channel::<u8>();
+        // let heap = Arc::new(RefCell::new(Heap::default()));
+        let heap = Arc::new(RefCell::new(NewHeap::default()));
+        let (stdout, _stdout_recv) = channel::<u8>();
         let res = {
             let mut ctx = Ctx::new(heap, HashMap::new(), HashMap::new(), stdout, HashMap::new(), Vec::new());
             eval_expr(&ast, &mut ctx).unwrap()
@@ -476,7 +477,8 @@ mod test {
     fn eval_print_expr() {
         let ast = fun_call("println", [bin_op(BinaryOperator::Plus, cint_lit(3), cint_lit(7))]);
 
-        let heap = Arc::new(RefCell::new(Heap::default()));
+        // let heap = Arc::new(RefCell::new(Heap::default()));
+        let heap = Arc::new(RefCell::new(NewHeap::default()));
 
         let (stdout, stdout_recv) = channel::<u8>();
         let res = {

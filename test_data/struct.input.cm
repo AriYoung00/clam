@@ -1,0 +1,6 @@
+struct Thing {
+    stuff: int,
+}
+
+fn main() {
+}
